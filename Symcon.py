@@ -170,7 +170,122 @@ def sendUDP(data):
     else:
         log("Fehler. Gesendet: {0} Empfangen: {1}".format(data.__len__(),res),"ERROR")
         log("Fehlerdaten: {0}".format(data),"ERROR")
-    
+
+def getUDP():
+    global statusI2C
+    global clSocket
+    global clIP
+    conClosed=False
+    (clSocket, clIP) = tcpSocket.accept()
+    log("Verbunden: {0}".format(clIP))
+    while True:
+        #log("Get UDP")
+        GeCoSInData=""
+        data=""
+        arr=""
+        while data[-2:]!="\r\n":
+            try:
+                #Testen ob noch verbunden? 
+                blk=clSocket.recv(1).decode("utf-8")
+                if len(blk)==0:
+                    conClosed=True
+                    break 
+            except:
+                log("Fehler beim Empfangen")
+            data+=blk
+        GeCoSInData=data[:-2]
+        data = ""
+        if GeCoSInData=="modulsuche":
+            modulSuche()
+        elif GeCoSInData=="StatusAllIn":
+            interrutpKanal(intKanal0)
+            interrutpKanal(intKanal1)
+            interrutpKanal(intKanal2)
+        elif GeCoSInData=="StatusPWMAll":
+            pwmAll()
+        elif GeCoSInData=="StatusAllOut":
+            ReadOutAll()
+        elif len(GeCoSInData)>=13: #13
+            try:
+                arr=GeCoSInData.split(";")
+                if len(arr)==19:
+                    adresse=int(arr[1],16)
+                    if adresse>=0x24 and adresse <=0x27:
+                        set_output(arr)
+                    elif adresse>=0x50 and adresse <=0x5f:
+                        set_pwm(arr)             
+                elif len(arr)==6:
+                    adresse=int(arr[1],16)
+                    if adresse>=0x68 and adresse <=0x6B:
+                        read_analog(arr)
+            except:
+                arr=""
+                log("Fehler: {0}".format(GeCoSInData),"ERROR")
+                statusI2C=1
+        # elif len(GeCoSInData)>=13:
+        #     arr=GeCoSInData.split(";")
+        #     read_analog(arr)
+        #     statusI2C==1       
+        else:
+            arr=""
+            log("Fehler: {0}".format(GeCoSInData),"ERROR")
+            statusI2C==1
+            #Verbindung unterbrochen, Neue Verbindung akzeptieren:
+            if conClosed==True:
+                thread_gecosOut()
+                break
+
+def thread_gecosOut():
+    _thread.start_new_thread(getUDP,())
+
+def thread_interrupt(pin):
+    _thread.start_new_thread(interrutpKanal,(pin,))
+
+def read_output(kanal,adresse):
+    global statusI2C
+    if adresse <0x24 or adresse > 0x27:
+        log("Modul adresse ungueltig: {0}".format(adresse))
+        return
+        
+    if kanal <0 or kanal > 3:
+        log("Kanal ungueltig")
+        return
+
+    sArr="{0};{1};".format(kanal,adresse)
+    try:
+        while True:
+            if statusI2C==1:
+                break
+            log("I2C Status: {0}".format(str(statusI2C))) 
+            time.sleep(0.001)            
+        
+        statusI2C=0
+        #Bytes fuer Bank A + B auslesen
+        plexer.channel(mux,kanal) 
+        iOutA=plexer.bus.read_byte_data(adresse,bankA)
+        iOutB=plexer.bus.read_byte_data(adresse,bankB)
+        i=0
+        for i in range(8):
+            if bit_from_string(iOutA,i)==1:
+                sArr+="1;"
+            else:
+                sArr+="0;"
+        i=0
+        for i in range(8):
+            if bit_from_string(iOutB,i)==1:
+                sArr+="1;"
+            else:
+                sArr+="0;"
+        sendUDP(sArr)   
+    except OSError as err:
+        statusI2C=1
+        log("I/O error: {0}".format(err),"ERROR")
+    except:
+        statusI2C=1
+        log("Fehler Output lesen: {0}".format(sArr),"ERROR")
+    finally:
+        statusI2C=1
+
 def set_output(arr):
     global statusI2C
     adresse=int(arr[1],16)
@@ -206,11 +321,27 @@ def set_output(arr):
             if (int(arr[i+10])==1):
                 iOutB=set_bit(iOutB,i,True)
             else:
-                iOutB=set_bit(iOutB,i,False)
-                
+                iOutB=set_bit(iOutB,i,False)                
         plexer.channel(mux,kanal)
         plexer.bus.write_byte_data(adresse,bankA,iOutA)
         plexer.bus.write_byte_data(adresse,bankB,iOutB)
+        #Prüfen und antworten.
+        iOutA=plexer.bus.read_byte_data(adresse,bankA)
+        iOutB=plexer.bus.read_byte_data(adresse,bankB)
+        sArr="{0};{1};".format(kanal,adresse)
+        i=0
+        for i in range(8):
+            if bit_from_string(iOutA,i)==1:
+                sArr+="1;"
+            else:
+                sArr+="0;"
+        i=0
+        for i in range(8):
+            if bit_from_string(iOutB,i)==1:
+                sArr+="1;"
+            else:
+                sArr+="0;"
+        sendUDP(sArr)   
     except OSError as err:
         statusI2C=1
         log("I/O error: {0}".format(err),"ERROR")
@@ -224,59 +355,7 @@ def log(message, level="INFO"):
     timestamp= time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(time.time()))
     print("{0} {1}: {2}".format(timestamp, level, message))
 
-def getUDP():
-    global statusI2C
-    global clSocket
-    global clIP
-    (clSocket, clIP) = tcpSocket.accept()
-    log("Verbunden: {0}".format(clIP))
-    while True:
-        #log("Get UDP")
-        GeCoSInData=""
-        data=""
-        arr=""
-        while data[-2:]!="\r\n":
-            try:
-                blk=clSocket.recv(1).decode("utf-8")
-            except:
-                log("Fehler beim Empfangen")
-            data+=blk
-        GeCoSInData=data[:-2]
-        data = ""
-        if GeCoSInData=="modulsuche":
-            modulSuche()
-        elif GeCoSInData=="StatusAllIn":
-            interrutpKanal(intKanal0)
-            interrutpKanal(intKanal1)
-            interrutpKanal(intKanal2)
-        elif GeCoSInData=="StatusPWMAll":
-            pwmAll()
-        elif len(GeCoSInData)>=13: #13
-            try:
-                arr=GeCoSInData.split(";")
-                if len(arr)==19:
-                    adresse=int(arr[1],16)
-                    if adresse>=0x24 and adresse <=0x27:
-                        set_output(arr)
-                    elif adresse>=0x50 and adresse <=0x5f:
-                        set_pwm(arr)             
-                elif len(arr)==6:
-                    adresse=int(arr[1],16)
-                    if adresse>=0x68 and adresse <=0x6B:
-                        read_analog(arr)
-            except:
-                arr=""
-                log("Fehler: {0}".format(GeCoSInData),"ERROR")
-                statusI2C=1
-        # elif len(GeCoSInData)>=13:
-        #     arr=GeCoSInData.split(";")
-        #     read_analog(arr)
-        #     statusI2C==1       
-        else:
-            arr=""
-            log("Fehler: {0}".format(GeCoSInData),"ERROR")
-            statusI2C==1   
-        
+       
 def set_bit(v, index, x): #v=original wert, x= true oder false
     #Bit auf 1/0 setzen (True oder False)
     mask = 1<< index
@@ -285,11 +364,17 @@ def set_bit(v, index, x): #v=original wert, x= true oder false
         v |= mask
     return v
     
+def ReadOutAll():
+    global statusI2C
+    for kanal in range(3):
+        for i in range(4):
+            device=0x24+i
+            try:
+                read_output(kanal,device)
+            except:
+                statusI2C=1
+            pass
 
-def thread_gecosOut():
-    _thread.start_new_thread(getUDP,())
- 
- 
 def pwmAll():
     global statusI2C
     for kanal in range(3):
@@ -301,12 +386,6 @@ def pwmAll():
                 statusI2C=1
             pass
 
-def thread_gecosOut():
-    _thread.start_new_thread(getUDP,())
-
-def thread_interrupt(pin):
-    _thread.start_new_thread(interrutpKanal,(pin,))
-    
 def interrutpKanal(pin):
     global statusI2C
     #Kanal nach INT Pin Wählen:
@@ -665,7 +744,7 @@ if __name__ == '__main__':
     aOutHex = [0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80]
     
     #Konfig:    
-    miniServerIP="192.168.178.103"
+    miniServerIP="192.168.178.28"
     miniServerPort=8000
     #paketLaenge=1024
     freqStd=100
