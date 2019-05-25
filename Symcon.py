@@ -569,7 +569,6 @@ def read_pwm(kanal, adresse):
 
     sendUDP(befehl)
     #log(befehl)
-    #Bei interrupt entsprechenden Port wert lesen:
     statusI2C=1
 
 
