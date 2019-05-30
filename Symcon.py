@@ -221,7 +221,6 @@ def getUDP():
                         elif arr[0]=="SAM":
                             read_analog(arr)
                         else:
-                            print("test333")
                             sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
                             log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
         else:
@@ -233,7 +232,6 @@ def getUDP():
                 thread_gecosOut()
                 break
             else:
-                print("test")
                 sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
                 log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
 
