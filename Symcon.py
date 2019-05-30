@@ -195,37 +195,42 @@ def getUDP():
             data+=blk
         GeCoSInData=data[:-2]
         data = ""
-        if GeCoSInData=="modulsuche":
-            modulSuche()
-        elif GeCoSInData=="StatusAllIn":
-            interrutpKanal(intKanal0)
-            interrutpKanal(intKanal1)
-            interrutpKanal(intKanal2)
-        elif GeCoSInData=="StatusPWMAll":
-            pwmAll()
-        elif GeCoSInData=="StatusAllOut":
-            ReadOutAll()
-        elif len(GeCoSInData)>=13: #13
-            try:
-                arr=GeCoSInData.split(";")
-                if len(arr)==19:
-                    adresse=int(arr[1],16)
-                    if adresse>=0x24 and adresse <=0x27:
+        if GeCoSInData[0]=="{":
+            GeCoSInData.replace("{","")
+            GeCoSInData.replace("}","")
+            if GeCoSInData=="MOD":
+                modulSuche()
+            elif GeCoSInData=="SAI":
+                interrutpKanal(intKanal0)
+                interrutpKanal(intKanal1)
+                interrutpKanal(intKanal2)
+            elif GeCoSInData=="SAP":
+                pwmAll()
+            elif GeCoSInData=="SAO":
+                ReadOutAll()
+            elif len(GeCoSInData)>=13: #13
+                try:
+                    arr=GeCoSInData.split(";")
+                    if arr[0]=="SOM":
                         set_output(arr)
-                    elif adresse>=0x50 and adresse <=0x5f:
-                        set_pwm(arr)             
-                elif len(arr)==6:
-                    adresse=int(arr[1],16)
-                    if adresse>=0x68 and adresse <=0x6B:
+                    elif arr[0]=="SPM":
+                        set_pwm(arr)
+                    elif arr[0]=="SAM":
                         read_analog(arr)
-            except:
-                arr=""
-                log("Fehler: {0}".format(GeCoSInData),"ERROR")
-                statusI2C=1
-        # elif len(GeCoSInData)>=13:
-        #     arr=GeCoSInData.split(";")
-        #     read_analog(arr)
-        #     statusI2C==1       
+                    # if len(arr)==20:
+                    #     adresse=int(arr[1],16)
+                    #     if adresse>=0x24 and adresse <=0x27:
+                    #         set_output(arr)
+                    #     elif adresse>=0x50 and adresse <=0x5f:
+                    #         set_pwm(arr)             
+                    # elif len(arr)==7:
+                    #     adresse=int(arr[1],16)
+                    #     if adresse>=0x68 and adresse <=0x6B:
+                    #         read_analog(arr)
+                except:
+                    arr=""
+                    log("Fehler: {0}".format(GeCoSInData),"ERROR")
+                    statusI2C=1
         else:
             arr=""
             log("Fehler: {0}".format(GeCoSInData),"ERROR")
@@ -288,8 +293,8 @@ def read_output(kanal,adresse):
 
 def set_output(arr):
     global statusI2C
-    adresse=int(arr[1],16)
-    kanal=int(arr[0])
+    adresse=int(arr[2],16)
+    kanal=int(arr[1])
     if adresse <0x24 or adresse > 0x27:
         log("Modul adresse ungueltig: {0}".format(adresse))
         return
@@ -328,7 +333,18 @@ def set_output(arr):
         #Prüfen und antworten.
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
-        sArr="{0};{1};".format(kanal,adresse)
+        sStatus="OK"        
+    except OSError as err:
+        statusI2C=1
+        sStatus=err
+        log("I/O error: {0}".format(err),"ERROR")
+    except:
+        statusI2C=1
+        sStatus=err
+        log("Fehler Output: {0}".format(arr),"ERROR")
+    finally:
+        statusI2C=1
+        sArr="{{{0};{1};{2};".format(arr[0],kanal,adresse)
         i=0
         for i in range(8):
             if bit_from_string(iOutA,i)==1:
@@ -341,15 +357,8 @@ def set_output(arr):
                 sArr+="1;"
             else:
                 sArr+="0;"
+        sArr+=";{0}}}".format(sStatus.Replace(";",""))
         sendUDP(sArr)   
-    except OSError as err:
-        statusI2C=1
-        log("I/O error: {0}".format(err),"ERROR")
-    except:
-        statusI2C=1
-        log("Fehler Output: {0}".format(arr),"ERROR")
-    finally:
-        statusI2C=1
         
 def log(message, level="INFO"):
     timestamp= time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(time.time()))
