@@ -191,13 +191,14 @@ def getUDP():
                     conClosed=True
                     break 
             except:
-                log("Fehler beim Empfangen")
+                log("Fehler beim Empfangen","ERROR")
             data+=blk
         GeCoSInData=data[:-2]
         data = ""
         if GeCoSInData[0]=="{":
-            GeCoSInData.replace("{","")
-            GeCoSInData.replace("}","")
+            GeCoSInData=GeCoSInData.replace("{","")
+            GeCoSInData=GeCoSInData.replace("}","")
+            print(GeCoSInData)
             if GeCoSInData=="MOD":
                 modulSuche()
             elif GeCoSInData=="SAI":
@@ -209,14 +210,17 @@ def getUDP():
             elif GeCoSInData=="SAO":
                 ReadOutAll()
             elif len(GeCoSInData)>=13: #13
-                try:
+               # try:
                     arr=GeCoSInData.split(";")
+                    print(arr[0])
                     if arr[0]=="SOM":
                         set_output(arr)
                     elif arr[0]=="SPM":
                         set_pwm(arr)
                     elif arr[0]=="SAM":
                         read_analog(arr)
+                    else:
+                        log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
                     # if len(arr)==20:
                     #     adresse=int(arr[1],16)
                     #     if adresse>=0x24 and adresse <=0x27:
@@ -227,13 +231,13 @@ def getUDP():
                     #     adresse=int(arr[1],16)
                     #     if adresse>=0x68 and adresse <=0x6B:
                     #         read_analog(arr)
-                except:
-                    arr=""
-                    log("Fehler: {0}".format(GeCoSInData),"ERROR")
-                    statusI2C=1
+                # except:
+                #     arr=""
+                #     log("Fehler: {0}".format(GeCoSInData),"ERROR")
+                #     statusI2C=1
         else:
             arr=""
-            log("Fehler: {0}".format(GeCoSInData),"ERROR")
+            log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
             statusI2C==1
             #Verbindung unterbrochen, Neue Verbindung akzeptieren:
             if conClosed==True:
@@ -310,14 +314,12 @@ def set_output(arr):
         sArr+=";Kanal ungueltig}}"
         sendUDP(sArr) 
         return
-        
     try:
         while True:
             if statusI2C==1:
                 break
             log("I2C Status: {0}".format(str(statusI2C))) 
             time.sleep(0.001)            
-        
         statusI2C=0
         #Bytes fuer Bank A + B auslesen
         plexer.channel(mux,kanal) 
@@ -325,51 +327,39 @@ def set_output(arr):
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
         i=0
         for i in range(8):
-            if (int(arr[i+2])==1):
+            if (int(arr[i+3])==1):
                 iOutA=set_bit(iOutA,i,True)
             else:
                 iOutA=set_bit(iOutA,i,False)
         i=0
         for i in range(8):
-            if (int(arr[i+10])==1):
+            if (int(arr[i+11])==1):
                 iOutB=set_bit(iOutB,i,True)
             else:
-                iOutB=set_bit(iOutB,i,False)                
+                iOutB=set_bit(iOutB,i,False)           
         plexer.channel(mux,kanal)
         plexer.bus.write_byte_data(adresse,bankA,iOutA)
         plexer.bus.write_byte_data(adresse,bankB,iOutB)
         #Prüfen und antworten.
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
-        sStatus="OK"        
+        sStatus="OK"      
     except OSError as err:
         statusI2C=1
-        sStatus=err
+        sStatus=err.replace(";","")
         log("I/O error: {0}".format(err),"ERROR")
     except:
         statusI2C=1
-        sStatus=err
+        sStatus=err.replace(";","")
         log("Fehler Output: {0}".format(arr),"ERROR")
     finally:
         statusI2C=1
         if len(sStatus) < 1:
             sStatus="Unkown Error"
-        sArr="{{"
+        sArr="{"
         sArr+=";".join(arr)
-        # sArr="{{{0};{1};{2};".format(arr[0],kanal,adresse)
-        # i=0
-        # for i in range(8):
-        #     if bit_from_string(iOutA,i)==1:
-        #         sArr+="1;"
-        #     else:
-        #         sArr+="0;"
-        # i=0
-        # for i in range(8):
-        #     if bit_from_string(iOutB,i)==1:
-        #         sArr+="1;"
-        #     else:
-        #         sArr+="0;"
-        sArr+=";{0}}}".format(sStatus.Replace(";",""))
+        sStatus=sStatus.replace(";","")
+        sArr+="{0}}}".format(sStatus)
         sendUDP(sArr)   
         
 def log(message, level="INFO"):
