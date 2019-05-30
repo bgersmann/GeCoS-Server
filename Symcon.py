@@ -211,18 +211,19 @@ def getUDP():
                 elif GeCoSInData=="SAO":
                     ReadOutAll()
                 elif len(GeCoSInData)>=13: #13
-                # try:
-                        arr=GeCoSInData.split(";")
-                        #print(arr[0])
-                        if arr[0]=="SOM":
-                            set_output(arr)
-                        elif arr[0]=="SPM":
-                            set_pwm(arr)
-                        elif arr[0]=="SAM":
-                            read_analog(arr)
-                        else:
-                            sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
-                            log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
+                    arr=GeCoSInData.split(";")
+                    if arr[0]=="SOM":
+                        set_output(arr)
+                    elif arr[0]=="SPM":
+                        set_pwm(arr)
+                    elif arr[0]=="SAM":
+                        read_analog(arr)
+                    else:
+                        sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
+                        log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
+            else:
+                sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
+                log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
         else:
             arr=""
             statusI2C==1
