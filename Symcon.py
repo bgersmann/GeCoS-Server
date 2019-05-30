@@ -297,10 +297,18 @@ def set_output(arr):
     kanal=int(arr[1])
     if adresse <0x24 or adresse > 0x27:
         log("Modul adresse ungueltig: {0}".format(adresse))
+        sArr="{{"
+        sArr+=";".join(arr)
+        sArr+=";Modul adresse ungueltig}}"
+        sendUDP(sArr) 
         return
         
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig")
+        sArr="{{"
+        sArr+=";".join(arr)
+        sArr+=";Kanal ungueltig}}"
+        sendUDP(sArr) 
         return
         
     try:
