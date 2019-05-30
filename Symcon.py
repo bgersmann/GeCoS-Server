@@ -12,6 +12,21 @@ import RPi.GPIO as GPIO
 statusI2C=1
 clSocket=""
 clIP=""
+aIN0 = []
+aIN1 = []
+aIN2 = []
+aOut0= []
+aOut1= []
+aOut2= []
+aPWM0= []
+aPWM1= []
+aPWM2= []
+aRGBW0= []
+aRGBW1= []
+aRGBW2= []
+aANA0= []
+aANA1= []
+aANA2= []
 class multiplex:
     
     def __init__(self, bus):
@@ -251,8 +266,8 @@ def read_output(kanal,adresse):
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig")
         return
-
-    sArr="{0};{1};".format(kanal,adresse)
+    sArr="{"
+    sArr+="SAO;{0};{1};".format(kanal,hex(adresse))
     try:
         while True:
             if statusI2C==1:
@@ -277,15 +292,22 @@ def read_output(kanal,adresse):
                 sArr+="1;"
             else:
                 sArr+="0;"
-        sendUDP(sArr)   
+        sStatus="OK"   
     except OSError as err:
         statusI2C=1
+        sStatus="IO Error Output lesen"
         log("I/O error: {0}".format(err),"ERROR")
     except:
         statusI2C=1
+        sStatus="Fehler Output lesen"
         log("Fehler Output lesen: {0}".format(sArr),"ERROR")
     finally:
         statusI2C=1
+        if len(sStatus) < 1:
+            sStatus="Unkown Error"
+        sStatus=sStatus.replace(";","")
+        sArr+="{0}}}".format(sStatus)
+        sendUDP(sArr)
 
 def set_output(arr):
     global statusI2C
@@ -338,11 +360,11 @@ def set_output(arr):
         sStatus="OK"      
     except OSError as err:
         statusI2C=1
-        sStatus=err.replace(";","")
+        sStatus=err
         log("I/O error: {0}".format(err),"ERROR")
     except:
         statusI2C=1
-        sStatus=err.replace(";","")
+        sStatus=err
         log("Fehler Output: {0}".format(arr),"ERROR")
     finally:
         statusI2C=1
@@ -369,14 +391,32 @@ def set_bit(v, index, x): #v=original wert, x= true oder false
     
 def ReadOutAll():
     global statusI2C
+    global aOut0
     for kanal in range(3):
-        for i in range(4):
-            device=0x24+i
-            try:
-                read_output(kanal,device)
-            except:
-                statusI2C=1
-            pass
+        if kanal==0:
+            for device in aOut0:
+                try:
+                    read_output(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if kanal==1:
+            for device in aOut1:
+                print(device)
+                try:
+                    read_output(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if kanal==2:
+            for device in aOut2:
+                print(device)
+                try:
+                    read_output(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        
 
 def pwmAll():
     global statusI2C
@@ -394,28 +434,47 @@ def interrutpKanal(pin):
     #Kanal nach INT Pin Wählen:
     if pin==intKanal0:
         kanal=0
+        for device in aIN0:
+            try:
+                read_input(kanal,device)
+            except:
+                statusI2C=1
+            pass
     elif pin==intKanal1:
         kanal=1
+        for device in aIN1:
+            try:
+                read_input(kanal,device)
+            except:
+                statusI2C=1
+            pass
     elif pin==intKanal2:
         kanal=2
+        for device in aIN2:
+            try:
+                read_input(kanal,device)
+            except:
+                statusI2C=1
+            pass
     else:
+        log("Kanal ungültig","ERROR")
         kanal=0                
     #Versuche alle 16In module zu lesen und Int zu finden.
-    for i in range(4):
-            device=0x20+i
-            try:
-                read_input(kanal,device)
-            except:
-                statusI2C=1
-            pass
-    if GPIO.input(pin)==GPIO.LOW:
-        for i in range(4):
-            device=0x20+i
-            try:
-                read_input(kanal,device)
-            except:
-                statusI2C=1
-            pass
+    # for i in range(4):
+    #         device=0x20+i
+    #         try:
+    #             read_input(kanal,device)
+    #         except:
+    #             statusI2C=1
+    #         pass
+    # if GPIO.input(pin)==GPIO.LOW:
+    #     for i in range(4):
+    #         device=0x20+i
+    #         try:
+    #             read_input(kanal,device)
+    #         except:
+    #             statusI2C=1
+    #         pass
             
 def read_analog(arr):
     global statusI2C
@@ -627,18 +686,21 @@ def read_input(kanal,adresse):
     #GPIO A+B Lesen und String bauen:
     wertA=plexer.bus.read_byte_data(adresse,gpioA)
     wertB=plexer.bus.read_byte_data(adresse,gpioB)
-    befehl="{0};{1};".format(kanal,hex(adresse))
+    befehl="{SAI;"
+    befehl+="{0};{1};".format(kanal,hex(adresse))
     for i in range(8):
         intSA = bit_from_string(wertA,i)
         befehl+= str(intSA)+";"
     for i in range(8):
         intSB = bit_from_string(wertB,i)
         befehl+= str(intSB)+";"
+    befehl+="}"
     sendUDP(befehl)
     #erneut lesen, auf änderung prüfen:
     wertA2=plexer.bus.read_byte_data(adresse,gpioA)
     wertB2=plexer.bus.read_byte_data(adresse,gpioB)
-    befehl="{0};{1};".format(kanal,hex(adresse))
+    befehl="{SAI;"
+    befehl+="{0};{1};".format(kanal,hex(adresse))
     #print("Vergleich A:",wertA2,"-",wertA)
     #print("Vergleich B:",wertB2,"-",wertB)
     if wertA2!=wertA or wertB2!=wertB:
@@ -648,7 +710,8 @@ def read_input(kanal,adresse):
         for i in range(8):
             intSB = bit_from_string(wertB,i-1)
             befehl+= str(intSB)+";"
-        sendUDP(befehl)
+        befehl+="}"
+        sendUDP(befehl)        
     statusI2C=1
 
 def modulSuche():
@@ -660,6 +723,7 @@ def modulSuche():
         time.sleep(0.001)
         
     for kanalSearch in range(3):
+        global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
         log("Suche Bus: {0} Kanal: {1}".format(bus,kanalSearch))
         plexer.channel(mux,kanalSearch)
         tmpIN=""
@@ -675,22 +739,52 @@ def modulSuche():
                     if device>=0x20 and device <=0x23:
                         log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpIN=tmpIN+hex(device)+";"
+                        if kanalSearch==0:
+                            aIN0.append(device)
+                        elif kanalSearch==1:
+                            aIN1.append(device)
+                        elif kanalSearch==2:
+                            aIN2.append(device)
                         set_input_konfig(kanalSearch,device)
                     elif device>=0x24 and device <=0x27:
                         log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpOut=tmpOut+hex(device)+";"
+                        if kanalSearch==0:
+                            aOut0.append(device)
+                        elif kanalSearch==1:
+                            aOut1.append(device)
+                        elif kanalSearch==2:
+                            aOut2.append(device)
                         set_output_konfig(kanalSearch,device)
                     elif device>=0x50 and device <=0x57:
                         log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpPWM=tmpPWM+hex(device)+";"
+                        if kanalSearch==0:
+                            aPWM0.append(device)
+                        elif kanalSearch==1:
+                            aPWM1.append(device)
+                        elif kanalSearch==2:
+                            aPWM2.append(device)
                         set_pwm_konfig(kanalSearch,device)
                     elif device>=0x58 and device <=0x5f:
                         log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpRGBW=tmpRGBW+hex(device)+";"
+                        if kanalSearch==0:
+                            aRGBW0.append(device)
+                        elif kanalSearch==1:
+                            aRGBW1.append(device)
+                        elif kanalSearch==2:
+                            aRGBW2.append(device)
                         set_pwm_konfig(kanalSearch,device)
                     elif device>=0x68 and device <=0x6b:
                         log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpANA=tmpANA+hex(device)+";"
+                        if kanalSearch==0:
+                            aANA0.append(device)
+                        elif kanalSearch==1:
+                            aANA1.append(device)
+                        elif kanalSearch==2:
+                            aANA2.append(device)
                     else:
                         tmpUnb=tmpUnb+hex(device)+";"
                         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',hex(device))
@@ -779,9 +873,6 @@ if __name__ == '__main__':
     modulSuche()
     log(datetime.datetime.now())
     log("UDP Port: {0}".format(miniServerPort))
-    thread_interrupt(intKanal0)
-    thread_interrupt(intKanal1)
-    thread_interrupt(intKanal2)
 
     #TCP Socket:
     tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
@@ -790,7 +881,32 @@ if __name__ == '__main__':
     tcpSocket.listen(5)
     thread_gecosOut()
 
+    #Interrupt:
+    # thread_interrupt(intKanal0)
+    # thread_interrupt(intKanal1)
+    # thread_interrupt(intKanal2)
     while True:
         #UDP Daten Empfangen: Wartet auf Daten. Zwei Scripte? Eins IN eins OUT?
         time.sleep(0.1)
-
+        #Interrupt event wird manchmal nicht erkannt, daher:
+        if GPIO.input(intKanal0)==GPIO.LOW:
+            for device in aIN0:
+                try:
+                    read_input(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if GPIO.input(intKanal1)==GPIO.LOW:
+            for device in aIN1:
+                try:
+                    read_input(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if GPIO.input(intKanal2)==GPIO.LOW:
+            for device in aIN2:
+                try:
+                    read_input(kanal,device)
+                except:
+                    statusI2C=1
+                pass
