@@ -344,19 +344,23 @@ def set_output(arr):
         log("Fehler Output: {0}".format(arr),"ERROR")
     finally:
         statusI2C=1
-        sArr="{{{0};{1};{2};".format(arr[0],kanal,adresse)
-        i=0
-        for i in range(8):
-            if bit_from_string(iOutA,i)==1:
-                sArr+="1;"
-            else:
-                sArr+="0;"
-        i=0
-        for i in range(8):
-            if bit_from_string(iOutB,i)==1:
-                sArr+="1;"
-            else:
-                sArr+="0;"
+        if len(sStatus) < 1:
+            sStatus="Unkown Error"
+        sArr="{{"
+        sArr+=";".join(arr)
+        # sArr="{{{0};{1};{2};".format(arr[0],kanal,adresse)
+        # i=0
+        # for i in range(8):
+        #     if bit_from_string(iOutA,i)==1:
+        #         sArr+="1;"
+        #     else:
+        #         sArr+="0;"
+        # i=0
+        # for i in range(8):
+        #     if bit_from_string(iOutB,i)==1:
+        #         sArr+="1;"
+        #     else:
+        #         sArr+="0;"
         sArr+=";{0}}}".format(sStatus.Replace(";",""))
         sendUDP(sArr)   
         
