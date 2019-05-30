@@ -195,54 +195,47 @@ def getUDP():
             data+=blk
         GeCoSInData=data[:-2]
         data = ""
-        if GeCoSInData[0]=="{":
-            GeCoSInData=GeCoSInData.replace("{","")
-            GeCoSInData=GeCoSInData.replace("}","")
-            print(GeCoSInData)
-            if GeCoSInData=="MOD":
-                modulSuche()
-            elif GeCoSInData=="SAI":
-                interrutpKanal(intKanal0)
-                interrutpKanal(intKanal1)
-                interrutpKanal(intKanal2)
-            elif GeCoSInData=="SAP":
-                pwmAll()
-            elif GeCoSInData=="SAO":
-                ReadOutAll()
-            elif len(GeCoSInData)>=13: #13
-               # try:
-                    arr=GeCoSInData.split(";")
-                    print(arr[0])
-                    if arr[0]=="SOM":
-                        set_output(arr)
-                    elif arr[0]=="SPM":
-                        set_pwm(arr)
-                    elif arr[0]=="SAM":
-                        read_analog(arr)
-                    else:
-                        log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
-                    # if len(arr)==20:
-                    #     adresse=int(arr[1],16)
-                    #     if adresse>=0x24 and adresse <=0x27:
-                    #         set_output(arr)
-                    #     elif adresse>=0x50 and adresse <=0x5f:
-                    #         set_pwm(arr)             
-                    # elif len(arr)==7:
-                    #     adresse=int(arr[1],16)
-                    #     if adresse>=0x68 and adresse <=0x6B:
-                    #         read_analog(arr)
-                # except:
-                #     arr=""
-                #     log("Fehler: {0}".format(GeCoSInData),"ERROR")
-                #     statusI2C=1
+        if len(GeCoSInData)>0:
+            if GeCoSInData[0]=="{":
+                GeCoSInData=GeCoSInData.replace("{","")
+                GeCoSInData=GeCoSInData.replace("}","")
+                #print(GeCoSInData)
+                if GeCoSInData=="MOD":
+                    modulSuche()
+                elif GeCoSInData=="SAI":
+                    interrutpKanal(intKanal0)
+                    interrutpKanal(intKanal1)
+                    interrutpKanal(intKanal2)
+                elif GeCoSInData=="SAP":
+                    pwmAll()
+                elif GeCoSInData=="SAO":
+                    ReadOutAll()
+                elif len(GeCoSInData)>=13: #13
+                # try:
+                        arr=GeCoSInData.split(";")
+                        #print(arr[0])
+                        if arr[0]=="SOM":
+                            set_output(arr)
+                        elif arr[0]=="SPM":
+                            set_pwm(arr)
+                        elif arr[0]=="SAM":
+                            read_analog(arr)
+                        else:
+                            print("test333")
+                            sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
+                            log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
         else:
             arr=""
-            log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
             statusI2C==1
             #Verbindung unterbrochen, Neue Verbindung akzeptieren:
             if conClosed==True:
+                log("Verbindung getrennt!","ERROR")
                 thread_gecosOut()
                 break
+            else:
+                print("test")
+                sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
+                log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
 
 def thread_gecosOut():
     _thread.start_new_thread(getUDP,())
@@ -767,14 +760,6 @@ if __name__ == '__main__':
     #Config lesen:
     configSchreiben('Allgemein','x','x')
    
-    #TCP Socket:
-    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
-    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-    tcpSocket.bind(("0.0.0.0",miniServerPort))
-    tcpSocket.listen(5)
-    thread_gecosOut()
-    
-   
     #Interrupt routine GeCoS 16 IN
     GPIO.setmode(GPIO.BCM)
     #Kanal0
@@ -798,6 +783,14 @@ if __name__ == '__main__':
     thread_interrupt(intKanal0)
     thread_interrupt(intKanal1)
     thread_interrupt(intKanal2)
+
+    #TCP Socket:
+    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
+    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+    tcpSocket.bind(("0.0.0.0",miniServerPort))
+    tcpSocket.listen(5)
+    thread_gecosOut()
+
     while True:
         #UDP Daten Empfangen: Wartet auf Daten. Zwei Scripte? Eins IN eins OUT?
         time.sleep(0.1)
