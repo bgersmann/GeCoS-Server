@@ -11,8 +11,8 @@ Erste Info: Funktion (3Buchstaben)
 n. Sachinformation (z.B.: Port Status)
 Antwort mit Befehl + Status
 
-Bsp.: {"SOM";1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;}
-Antwort: {"SOM";1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;"OK"}
+Bsp.: {SOM;1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;}
+Antwort: {SOM;1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;OK}
 
 Funktionen:
 
