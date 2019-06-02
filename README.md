@@ -24,3 +24,4 @@ Funktionen:
 "SPM" = "Set PWM Module"
 "SAM" = "Set Analog Module"
 
+Kanal 0-2
