@@ -24,6 +24,6 @@ Funktionen:
 "SAP" = Status All PWM -> Liest alle PWM Module aus und sendet aktuellen Status
 "SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B
 "SPM" = "Set PWM Module"
-"SAM" = "Set Analog Module"
+"SAM" = "Status Analog Module" -> erweitern/aendern in Status All Analog? 
 
 Kanal 0-2

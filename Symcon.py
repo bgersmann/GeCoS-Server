@@ -473,11 +473,11 @@ def interrutpKanal(pin):
             
 def read_analog(arr):
     global statusI2C
-    adresse=int(arr[1],16)
-    kanal=int(arr[0])
-    channel=int(arr[2])
-    res=int(arr[3])
-    amp=int(arr[4])
+    adresse=int(arr[2],16)
+    kanal=int(arr[1])
+    channel=int(arr[3])
+    res=int(arr[4])
+    amp=int(arr[5])
     if adresse <0x68 or adresse > 0x6B:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
         return
@@ -487,13 +487,13 @@ def read_analog(arr):
         return
         
     if channel <0 or channel > 3:
-        log("Channel ungueltig","ERROR")
+        log("Analog Channel ungueltig","ERROR")
         return
     if res <0 or res > 3:
-        log("Resolution ungueltig","ERROR")
+        log("Analog Resolution ungueltig","ERROR")
         return
     if amp <0 or amp > 3:
-        log("Amplifier ungueltig","ERROR")
+        log("Analog Amplifier ungueltig","ERROR")
         return
             
     while True:
@@ -582,7 +582,14 @@ def read_analog(arr):
             if signBit:
                 wert=wert-2048
         #print("Wert:",wert)
-        befehl="{0};{1};{2};{3}".format(kanal,hex(adresse),channel,round(wert,3))
+        sStatus="OK"
+        if len(sStatus) < 1:
+            sStatus="Unkown Error"
+        befehl="{SAM;"
+        befehl+="{0};{1};{2};{3};".format(kanal,hex(adresse),channel,round(wert,3))
+        sStatus=sStatus.replace(";","")
+        befehl+="{0}}}".format(sStatus)
+    
         sendUDP(befehl)    
     else:
         log("Analog: Daten nicht bereit...","ERROR") 
@@ -631,8 +638,8 @@ def read_pwm(kanal, adresse):
 
 def set_pwm(arr):
     global statusI2C
-    adresse=int(arr[1],16)
-    kanal=int(arr[0])
+    adresse=int(arr[2],16)
+    kanal=int(arr[1])
     if adresse <0x50 or adresse > 0x5f:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
         return
@@ -716,6 +723,7 @@ def read_input(kanal,adresse):
         sendUDP(befehl)        
     statusI2C=1
     statusRIP=1
+
 def modulSuche():
     global statusI2C
     while True:
@@ -803,11 +811,6 @@ def modulSuche():
 def bit_from_string(string, index):
     i=int(string)
     return i >> index & 1
-    #i,j=divmod(index,8)
-    #if string & (1<<j):
-    #    return 1
-    #else:
-    #    return 0
 
 if __name__ == '__main__':
     #Konfig Werte MCP:
