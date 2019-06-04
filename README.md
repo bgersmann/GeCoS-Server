@@ -11,16 +11,18 @@ Erste Info: Funktion (3Buchstaben)
 n. Sachinformation (z.B.: Port Status)
 Antwort mit Befehl + Status
 
-Bsp.: {SOM;1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;}
-Antwort: {SOM;1;0x24;0;1;0;0;0;1;0;1;0;1;0;0;0;1;0;1;OK}
+Bsp.: Output setzen, alle Ausgänge einschalten: 
+Befehl:     {SOM;1;0x24;65535;}
+Antwort:    {SOM;1;0x24;65535;OK}
+
+Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. 
 
 Funktionen:
-
 "SAI" = Status All IN -> Liest alle Eingangsmodule und sendet aktuellen Status
 "SAO" = Status All Out -> Liest alle Ausgangsmodule und sendet aktuellen Status
 "MOD" = Modulsuche -> Sucht nach Modulen und Antwortet mit Moduladressen
 "SAP" = Status All PWM -> Liest alle PWM Module aus und sendet aktuellen Status
-"SOM" = "Set Output Module"
+"SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B
 "SPM" = "Set PWM Module"
 "SAM" = "Set Analog Module"
 

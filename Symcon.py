@@ -226,7 +226,7 @@ def getUDP():
                     pwmAll()
                 elif GeCoSInData=="SAO":
                     ReadOutAll()
-                elif len(GeCoSInData)>=13: #13
+                elif len(GeCoSInData)>=7: #13
                     arr=GeCoSInData.split(";")
                     if arr[0]=="SOM":
                         set_output(arr)
@@ -285,18 +285,20 @@ def read_output(kanal,adresse):
         plexer.channel(mux,kanal) 
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
-        i=0
-        for i in range(8):
-            if bit_from_string(iOutA,i)==1:
-                sArr+="1;"
-            else:
-                sArr+="0;"
-        i=0
-        for i in range(8):
-            if bit_from_string(iOutB,i)==1:
-                sArr+="1;"
-            else:
-                sArr+="0;"
+        iOut = [iOutA, iOutB]
+        i=int.from_bytes(iOut,"big")
+        sArr+="{0};".format(i)
+        # for i in range(8):
+        #     if bit_from_string(iOutA,i)==1:
+        #         sArr+="1;"
+        #     else:
+        #         sArr+="0;"
+        # i=0
+        # for i in range(8):
+        #     if bit_from_string(iOutB,i)==1:
+        #         sArr+="1;"
+        #     else:
+        #         sArr+="0;"
         sStatus="OK"   
     except OSError as err:
         statusI2C=1
@@ -344,18 +346,21 @@ def set_output(arr):
         plexer.channel(mux,kanal) 
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
-        i=0
-        for i in range(8):
-            if (int(arr[i+3])==1):
-                iOutA=set_bit(iOutA,i,True)
-            else:
-                iOutA=set_bit(iOutA,i,False)
-        i=0
-        for i in range(8):
-            if (int(arr[i+11])==1):
-                iOutB=set_bit(iOutB,i,True)
-            else:
-                iOutB=set_bit(iOutB,i,False)           
+        tmpArrOut=int(arr[3]).to_bytes(2,"big")
+        iOutA=tmpArrOut[0]
+        iOutB=tmpArrOut[1]
+        # i=0
+        # for i in range(8):
+        #     if (int(arr[i+3])==1):
+        #         iOutA=set_bit(iOutA,i,True)
+        #     else:
+        #         iOutA=set_bit(iOutA,i,False)
+        # i=0
+        # for i in range(8):
+        #     if (int(arr[i+11])==1):
+        #         iOutB=set_bit(iOutB,i,True)
+        #     else:
+        #         iOutB=set_bit(iOutB,i,False)           
         plexer.channel(mux,kanal)
         plexer.bus.write_byte_data(adresse,bankA,iOutA)
         plexer.bus.write_byte_data(adresse,bankB,iOutB)
@@ -679,12 +684,15 @@ def read_input(kanal,adresse):
     wertB=plexer.bus.read_byte_data(adresse,gpioB)
     befehl="{SAI;"
     befehl+="{0};{1};".format(kanal,hex(adresse))
-    for i in range(8):
-        intSA = bit_from_string(wertA,i)
-        befehl+= str(intSA)+";"
-    for i in range(8):
-        intSB = bit_from_string(wertB,i)
-        befehl+= str(intSB)+";"
+    # for i in range(8):
+    #     intSA = bit_from_string(wertA,i)
+    #     befehl+= str(intSA)+";"
+    # for i in range(8):
+    #     intSB = bit_from_string(wertB,i)
+    #     befehl+= str(intSB)+";"
+    iIn = [wertA, wertB]
+    i=int.from_bytes(iIn,"big")
+    befehl+="{0};".format(i)
     befehl+="}"
     sendUDP(befehl)
     #erneut lesen, auf änderung prüfen:
@@ -695,12 +703,15 @@ def read_input(kanal,adresse):
     #print("Vergleich A:",wertA2,"-",wertA)
     #print("Vergleich B:",wertB2,"-",wertB)
     if wertA2!=wertA or wertB2!=wertB:
-        for i in range(8):
-            intSA = bit_from_string(wertA,i-1)
-            befehl+= str(intSA)+";"
-        for i in range(8):
-            intSB = bit_from_string(wertB,i-1)
-            befehl+= str(intSB)+";"
+        # for i in range(8):
+        #     intSA = bit_from_string(wertA2,i-1)
+        #     befehl+= str(intSA)+";"
+        # for i in range(8):
+        #     intSB = bit_from_string(wertB2,i-1)
+        #     befehl+= str(intSB)+";"
+        iIn = [wertA2, wertB2]
+        i=int.from_bytes(iIn,"big")
+        befehl+="{0};".format(i)
         befehl+="}"
         sendUDP(befehl)        
     statusI2C=1
