@@ -383,7 +383,7 @@ def set_output(arr):
         sArr="{"
         sArr+=";".join(arr)
         sStatus=sStatus.replace(";","")
-        sArr+="{0}}}".format(sStatus)
+        sArr+=";{0}}}".format(sStatus)
         sendUDP(sArr)   
         
 def log(message, level="INFO"):
