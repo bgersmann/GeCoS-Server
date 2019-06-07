@@ -199,7 +199,7 @@ def getUDP():
         GeCoSInData=""
         data=""
         arr=""
-        while data[-2:]!="\r\n":
+        while data[-1:]!="}":
             try:
                 #Testen ob noch verbunden? 
                 blk=clSocket.recv(1).decode("utf-8")
@@ -209,7 +209,7 @@ def getUDP():
             except:
                 log("Fehler beim Empfangen","ERROR")
             data+=blk
-        GeCoSInData=data[:-2]
+        GeCoSInData=data[:-1]
         data = ""
         if len(GeCoSInData)>0:
             if GeCoSInData[0]=="{":
@@ -384,6 +384,7 @@ def set_output(arr):
         sArr+=";".join(arr)
         sStatus=sStatus.replace(";","")
         sArr+=";{0}}}".format(sStatus)
+        sArr = sArr.replace(";;",";")
         sendUDP(sArr)   
         
 def log(message, level="INFO"):
@@ -629,8 +630,6 @@ def read_pwm(kanal, adresse):
         else:
             wert=round((wert/4095)*100)
         befehl+= str(wert)+";"
-    print(befehl)
-
     sendUDP(befehl)
     #log(befehl)
     statusI2C=1
@@ -671,10 +670,18 @@ def read_input(kanal,adresse):
     global statusI2C,statusRIP
     if adresse <0x20 or adresse > 0x23:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
+        sArr="{{"
+        sArr+=";".join(arr)
+        sArr+=";Modul adresse ungueltig}}"
+        sendUDP(sArr) 
         return
     
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig","ERROR")
+        sArr="{{"
+        sArr+=";".join(arr)
+        sArr+=";Kanal ungueltig}}"
+        sendUDP(sArr) 
         return
         
     while True:
@@ -756,6 +763,11 @@ def modulSuche():
                         elif kanalSearch==2:
                             aIN2.append(device)
                         set_input_konfig(kanalSearch,device)
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("IN")
+                        befehl+="}"
+                        sendUDP(befehl)
                     elif device>=0x24 and device <=0x27:
                         log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpOut=tmpOut+hex(device)+";"
@@ -766,6 +778,11 @@ def modulSuche():
                         elif kanalSearch==2:
                             aOut2.append(device)
                         set_output_konfig(kanalSearch,device)
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("OUT")
+                        befehl+="}"
+                        sendUDP(befehl)
                     elif device>=0x50 and device <=0x57:
                         log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpPWM=tmpPWM+hex(device)+";"
@@ -776,6 +793,11 @@ def modulSuche():
                         elif kanalSearch==2:
                             aPWM2.append(device)
                         set_pwm_konfig(kanalSearch,device)
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("PWM")
+                        befehl+="}"
+                        sendUDP(befehl)
                     elif device>=0x58 and device <=0x5f:
                         log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpRGBW=tmpRGBW+hex(device)+";"
@@ -786,6 +808,11 @@ def modulSuche():
                         elif kanalSearch==2:
                             aRGBW2.append(device)
                         set_pwm_konfig(kanalSearch,device)
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("RGBW")
+                        befehl+="}"
+                        sendUDP(befehl)
                     elif device>=0x68 and device <=0x6b:
                         log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpANA=tmpANA+hex(device)+";"
@@ -795,10 +822,20 @@ def modulSuche():
                             aANA1.append(device)
                         elif kanalSearch==2:
                             aANA2.append(device)
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("ANA")
+                        befehl+="}"
+                        sendUDP(befehl)
                     else:
                         tmpUnb=tmpUnb+hex(device)+";"
                         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',hex(device))
                         log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                        befehl="{MOD;"
+                        befehl+="{0};{1};".format(kanalSearch,hex(device))
+                        befehl+="{0};".format("UNB")
+                        befehl+="}"
+                        sendUDP(befehl)
             except:
                 pass
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16IN',tmpIN)
@@ -861,13 +898,13 @@ if __name__ == '__main__':
     GPIO.setmode(GPIO.BCM)
     #Kanal0
     GPIO.setup(intKanal0,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    GPIO.add_event_detect(intKanal0, GPIO.FALLING, callback=thread_interrupt, bouncetime = 8)
+    GPIO.add_event_detect(intKanal0, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
     #Kanal1
     GPIO.setup(intKanal1,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    GPIO.add_event_detect(intKanal1, GPIO.FALLING, callback=thread_interrupt, bouncetime = 8)
+    GPIO.add_event_detect(intKanal1, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
     #Kanal2
     GPIO.setup(intKanal2,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    GPIO.add_event_detect(intKanal2, GPIO.FALLING, callback=thread_interrupt, bouncetime = 8)
+    GPIO.add_event_detect(intKanal2, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
     
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))

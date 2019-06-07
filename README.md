@@ -27,3 +27,12 @@ Funktionen:
 "SAM" = "Status Analog Module" -> erweitern/aendern in Status All Analog? 
 
 Kanal 0-2
+
+MOD - Antworten
+{MOD;0;0x24;OUT}    -> 16Out erkannt
+{MOD;0;0x20;IN}     -> 16In erkannt
+{MOD;0;0x50;PWM}    -> PWM erkannt
+{MOD;0;0x58;RGBW}   -> RGBW erkannt
+{MOD;0;0x68;ANA}    -> Analog erkannt
+{MOD;0;0x05;UNB}    -> Unbekanntes i2c device
+
