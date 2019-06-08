@@ -21,9 +21,11 @@ Funktionen:
 "SAI" = Status All IN -> Liest alle Eingangsmodule und sendet aktuellen Status
 "SAO" = Status All Out -> Liest alle Ausgangsmodule und sendet aktuellen Status
 "MOD" = Modulsuche -> Sucht nach Modulen und Antwortet mit Moduladressen
-"SAP" = Status All PWM/RGBW -> Liest alle PWM Module aus (Inkl. RGBW) und sendet aktuellen Status
+"SPWM" = Status All PWM -> Liest alle PWM Module aus und sendet aktuellen Status
+"SRGBW" = Status All RGBW -> Liest alle RGBW Module aus und sendet aktuellen Status
 "SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B
-"SPM" = "Set PWM/RGBW Module"
+"PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;Kanal;Wert} Wert=0-100
+"RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;R;G;B;W} R/G/B/W=0-100
 "SAM" = "Status Analog Module" -> erweitern/aendern in Status All Analog? 
 
 Kanal 0-2

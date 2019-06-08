@@ -177,7 +177,7 @@ def sendUDP(data):
     try:
         res=clSocket.send(data.encode())
     except IOError as err:
-        log("Fehler:{0} ; {1}".format(err,data),"ERROR")
+        log("Fehler:{0} ; {1}".format(str(err),data),"ERROR")
     #Daten pruefen:
     if (int(res)==int(data.encode().__len__())):
         log("Gesendet: {0} : {1}".format(clIP,data))
@@ -220,16 +220,20 @@ def getUDP():
                     interrutpKanal(intKanal0)
                     interrutpKanal(intKanal1)
                     interrutpKanal(intKanal2)
-                elif GeCoSInData=="SAP":
+                elif GeCoSInData=="SPWM":
                     pwmAll()
+                elif GeCoSInData=="SRGBW":
+                    rgbwAll()
                 elif GeCoSInData=="SAO":
                     ReadOutAll()
                 elif len(GeCoSInData)>=7: #13
                     arr=GeCoSInData.split(";")
                     if arr[0]=="SOM":
                         set_output(arr)
-                    elif arr[0]=="SPM":
+                    elif arr[0]=="PWM":
                         set_pwm(arr)
+                    elif arr[0]=="RGBW":
+                        set_rgbw(arr)
                     elif arr[0]=="SAM":
                         read_analog(arr)
                     else:
@@ -309,7 +313,7 @@ def read_output(kanal,adresse):
         sStatus="OK"   
     except OSError as err:
         statusI2C=1
-        sStatus="IO Error Output lesen"
+        sStatus=str(err)
         log("I/O error: {0}".format(err),"ERROR")
     except:
         statusI2C=1
@@ -377,7 +381,7 @@ def set_output(arr):
         sStatus="OK"      
     except OSError as err:
         statusI2C=1
-        sStatus=err
+        sStatus=str(err)
         log("I/O error: {0}".format(err),"ERROR")
     except:
         statusI2C=1
@@ -444,20 +448,8 @@ def pwmAll():
                 except:
                     statusI2C=1
                 pass
-            for device in aRGBW0:
-                try:
-                    read_pwm(kanal,device)
-                except:
-                    statusI2C=1
-                pass
         if kanal==1:
             for device in aPWM1:
-                try:
-                    read_pwm(kanal,device)
-                except:
-                    statusI2C=1
-                pass
-            for device in aRGBW1:
                 try:
                     read_pwm(kanal,device)
                 except:
@@ -470,9 +462,29 @@ def pwmAll():
                 except:
                     statusI2C=1
                 pass
+
+
+def rgbwAll():
+    global statusI2C,aPWM0,aPWM1,aPWM2,aRGBW0,aRGBW1,aRGBW2
+    for kanal in range(3):
+        if kanal==0:
+            for device in aRGBW0:
+                try:
+                    read_rgbw(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if kanal==1:
+            for device in aRGBW1:
+                try:
+                    read_rgbw(kanal,device)
+                except:
+                    statusI2C=1
+                pass
+        if kanal==2:
             for device in aRGBW2:
                 try:
-                    read_pwm(kanal,device)
+                    read_rgbw(kanal,device)
                 except:
                     statusI2C=1
                 pass    
@@ -662,7 +674,56 @@ def read_analog(arr):
 
 def read_pwm(kanal, adresse):
     global statusI2C
-    if adresse <0x50 or adresse > 0x5f:
+    if adresse <0x50 or adresse > 0x57:
+        log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
+        sArr="{"
+        sArr+="SPWM;{0};{1};".format(kanal,hex(adresse))
+        sArr+=";Modul adresse ungueltig}"
+        sendUDP(sArr) 
+        return
+    
+    if kanal <0 or kanal > 3:
+        log("Kanal ungueltig","ERROR")
+        sArr="{"
+        sArr+="SPWM;{0};{1};".format(kanal,hex(adresse))
+        sArr+=";Kanal ungueltig}"
+        sendUDP(sArr) 
+        return
+        
+    while True:
+        if statusI2C==1:
+            break
+        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
+        time.sleep(0.001)
+        
+    statusI2C=0
+    plexer.channel(mux,kanal)
+    #{PWM;I2C-Kanal;Adresse;Kanal;Wert}
+    #befehl="{0};{1};".format(kanal,hex(adresse))
+    for i in range(16): #16
+        sArr="{"
+        sArr+="SPWM;{0};{1};{2};".format(kanal,hex(adresse),i)
+        startAdr=int(i*4+6)
+        #LowByte
+        lByte=plexer.bus.read_byte_data(adresse,startAdr+2)
+        #HighByte
+        hByte=plexer.bus.read_byte_data(adresse,startAdr+3)
+        wert=0
+        wert = wert*256+int(hByte)
+        wert = wert*256+int(lByte)
+        #wert=int.from_bytes(lByte+hByte,byteorder="big")
+        if wert==0:
+            wert=0
+        else:
+            wert=round((wert/4095)*100)
+        sArr+= str(wert)+";"
+        sArr+="OK}"
+        sendUDP(sArr)
+    statusI2C=1
+
+def read_rgbw(kanal, adresse):
+    global statusI2C
+    if adresse <0x57 or adresse > 0x5f:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
         sArr="{"
         sArr+="SAP;{0};{1};".format(kanal,hex(adresse))
@@ -686,9 +747,11 @@ def read_pwm(kanal, adresse):
         
     statusI2C=0
     plexer.channel(mux,kanal)
-    sArr="{"
-    sArr+="SAP;{0};{1};".format(kanal,hex(adresse))
+    #{PWM;I2C-Kanal;Adresse;Kanal;Wert}
     #befehl="{0};{1};".format(kanal,hex(adresse))
+    i2 = 0
+    sArr="{"
+    sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
     for i in range(16): #16
         startAdr=int(i*4+6)
         #LowByte
@@ -704,16 +767,40 @@ def read_pwm(kanal, adresse):
         else:
             wert=round((wert/4095)*100)
         sArr+= str(wert)+";"
-    sArr+="OK}"
-    sendUDP(sArr)
+        if i2==0:
+              if i == i2+3:
+                i2+=1
+                sArr+="OK}"
+                sendUDP(sArr)
+                sArr="{"
+                sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+        if i2==1:
+            if i == i2+6:
+                i2+=1
+                sArr+="OK}"
+                sendUDP(sArr)
+                sArr="{"
+                sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+        if i2==2:
+            if i== i2+9:
+                i2+=1
+                sArr+="OK}"
+                sendUDP(sArr)
+                sArr="{"
+                sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+        if i==15:
+            i2+=1
+            sArr+="OK}"
+            sendUDP(sArr)
+            sArr="{"
+            sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
     statusI2C=1
-
 
 def set_pwm(arr):
     global statusI2C
     adresse=int(arr[2],16)
     kanal=int(arr[1])
-    if adresse <0x50 or adresse > 0x5f:
+    if adresse <0x50 or adresse > 0x57:
         log("Modul Adresse ungueltig: {0}".format(adresse),"ERROR")
         sArr="{"
         sArr+=";".join(arr)
@@ -728,6 +815,14 @@ def set_pwm(arr):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
+    if int(arr[3]) <0 or int(arr[3]) >15:
+        log("Kanal ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";PWM-Kanal ungueltig}"
+        sendUDP(sArr) 
+        return
+
     sStatus=""
     try:
         while True:
@@ -740,20 +835,128 @@ def set_pwm(arr):
         #LED_ON Immer 0
         #LED_OFF 4096*X%-1
         #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
-        for i in range(16):
-            wert = int(round(4095*(int(arr[i+3])/100)))
-            startAdr=int(i*4+6)
-            hByte, lByte = bytes(divmod(wert,0x100))
-            plexer.bus.write_byte_data(adresse,startAdr,0x00)
-            plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
-            plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
-            plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
+        #Array 3= Kanal 4 = wert
+        i=int(arr[3])
+        wert = int(round(4095*(int(arr[4])/100)))
+        startAdr=int(i*4+6)
+        hByte, lByte = bytes(divmod(wert,0x100))
+        plexer.bus.write_byte_data(adresse,startAdr,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
+        plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
         statusI2C=1
         sStatus="OK"
     except OSError as err:
         statusI2C=1
-        sStatus=err
+        sStatus=str(err)
         log("I/O error: {0}".format(err),"ERROR")
+    except:
+        statusI2C=1
+        sStatus="Fehler PWM Setzen lesen"
+        log("Fehler PWM Setzen: {0}".format(arr),"ERROR")
+    finally:
+        statusI2C=1
+        if len(sStatus) < 1:
+            sStatus="Unkown Error"
+        sArr="{"
+        sArr+=";".join(arr)
+        sStatus=sStatus.replace(";","")
+        sArr+=";{0}}}".format(sStatus)
+        sArr = sArr.replace(";;",";")
+        sendUDP(sArr)
+
+def set_rgbw(arr):
+    global statusI2C
+    adresse=int(arr[2],16)
+    kanal=int(arr[1])
+    if adresse <0x58 or adresse > 0x5f:
+        log("Modul Adresse ungueltig: {0}".format(adresse),"ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";Modul Adresse ungueltig}"
+        sendUDP(sArr) 
+        return
+    
+    if kanal <0 or kanal > 3:
+        log("Kanal ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";Kanal ungueltig}"
+        sendUDP(sArr) 
+        return
+    if int(arr[3]) <0 or int(arr[3]) >3:
+        log("Kanal ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";PWM-Kanal ungueltig}"
+        sendUDP(sArr) 
+        return
+
+    sStatus=""
+    try:
+        while True:
+            if statusI2C==1:
+                break
+            log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
+            time.sleep(0.001)
+        statusI2C=0
+        plexer.channel(mux,kanal)
+        #LED_ON Immer 0
+        #LED_OFF 4096*X%-1
+        #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
+        #Array 3= Kanal 4 = wert
+        i=int(arr[3])
+        if i==1:
+            i+=3
+        elif i==2:
+            i+=6
+        elif i==3:
+            i+=9
+        r=int(arr[4])
+        g=int(arr[5])
+        b=int(arr[6])
+        w=int(arr[7])
+        #Rot:
+        wert = int(round(4095*(r/100)))
+        startAdr=int(i*4+6)
+        hByte, lByte = bytes(divmod(wert,0x100))
+        plexer.bus.write_byte_data(adresse,startAdr,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
+        plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
+        i+=1
+        #Grün:
+        wert = int(round(4095*(g/100)))
+        startAdr=int(i*4+6)
+        hByte, lByte = bytes(divmod(wert,0x100))
+        plexer.bus.write_byte_data(adresse,startAdr,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
+        plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
+        i+=1
+        #Blau:
+        wert = int(round(4095*(b/100)))
+        startAdr=int(i*4+6)
+        hByte, lByte = bytes(divmod(wert,0x100))
+        plexer.bus.write_byte_data(adresse,startAdr,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
+        plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
+        i+=1
+        #Weiß:
+        wert = int(round(4095*(w/100)))
+        startAdr=int(i*4+6)
+        hByte, lByte = bytes(divmod(wert,0x100))
+        plexer.bus.write_byte_data(adresse,startAdr,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
+        plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
+        plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
+        statusI2C=1
+        sStatus="OK"
+    except OSError as err:
+        statusI2C=1
+        sStatus=str(err)
+        log("I/O error: {0}".format(str(err)),"ERROR")
     except:
         statusI2C=1
         sStatus="Fehler PWM Setzen lesen"
@@ -834,15 +1037,17 @@ def read_input(kanal,adresse):
         statusI2C=1
         statusRIP=1
     except OSError as err:
+        sStatus=str(err)
         statusI2C=1
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
         befehl+="IO Error Input lesen"
         befehl+="{0}}}".format(sStatus)
         sendUDP(befehl)
-        log("I/O error: {0}".format(err),"ERROR")
+        log("I/O error: {0}".format(str(err)),"ERROR")
     except:
         statusI2C=1
+        sStatus="Fehler Input lesen"
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
         befehl+="Fehler Input lesen"
