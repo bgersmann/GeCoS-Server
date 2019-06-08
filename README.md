@@ -26,7 +26,7 @@ Funktionen:
 "SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B
 "PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;Kanal;Wert} Wert=0-100
 "RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;R;G;B;W} R/G/B/W=0-100
-"SAM" = "Status Analog Module" -> erweitern/aendern in Status All Analog? 
+"SAM" = "Status Analog Module" -> {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}
 
 Kanal 0-2
 
