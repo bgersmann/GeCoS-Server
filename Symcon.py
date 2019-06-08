@@ -524,6 +524,9 @@ def interrutpKanal(pin):
         kanal=0
             
 def read_analog(arr):
+    # "SAM";I2C Kanal;Adresse;Channel-Analog;Resolution;Amplifier
+    # {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}
+    # {SAM;0;0x69;0;3;0}
     global statusI2C
     adresse=int(arr[2],16)
     kanal=int(arr[1])
@@ -657,12 +660,10 @@ def read_analog(arr):
         sStatus="OK"
         if len(sStatus) < 1:
             sStatus="Unkown Error"
-        befehl="{SAM;"
-        befehl+="{0};{1};{2};{3};".format(kanal,hex(adresse),channel,round(wert,3))
-        sStatus=sStatus.replace(";","")
-        befehl+="{0}}}".format(sStatus)
-    
-        sendUDP(befehl)    
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";{0};{1}{2}".format(round(wert,3),sStatus,"}")
+        sendUDP(sArr) 
     else:
         log("Analog: Daten nicht bereit...","ERROR")
         sArr="{"
