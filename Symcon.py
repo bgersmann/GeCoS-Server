@@ -207,12 +207,13 @@ def getUDP():
             except:
                 log("Fehler beim Empfangen","ERROR")
             data+=blk
+        log("Empfangen: {0} : {1}".format(clIP,data))
         GeCoSInData=data[:-1]
         data = ""
         if len(GeCoSInData)>0:
             if GeCoSInData[0]=="{":
                 GeCoSInData=GeCoSInData.replace("{","")
-                GeCoSInData=GeCoSInData.replace("}","")
+                #GeCoSInData=GeCoSInData.replace("}","")
                 #print(GeCoSInData)
                 if GeCoSInData=="MOD":
                     modulSuche()
@@ -1063,14 +1064,29 @@ def read_input(kanal,adresse):
 
 def modulSuche():
     global statusI2C
+    global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
     while True:
         if statusI2C==1:
             break
         log("I2C Status: {0}".format(str(statusI2C)),"I2C Busy") 
         time.sleep(0.001)
-        
-    for kanalSearch in range(3):
-        global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
+    #Daten löschen:
+    aOut0 =[]
+    aOut1 =[]
+    aOut2 =[]
+    aPWM0 =[]
+    aPWM1 =[]
+    aPWM2 =[]
+    aIN0 =[]
+    aIN1 =[]
+    aIN2 =[]
+    aANA0 =[]
+    aANA1 =[]
+    aANA2 =[] 
+    aRGBW0 =[]
+    aRGBW1 =[]
+    aRGBW2 =[]
+    for kanalSearch in range(3):        
         log("Suche Bus: {0} Kanal: {1}".format(bus,kanalSearch))
         plexer.channel(mux,kanalSearch)
         tmpIN=""
