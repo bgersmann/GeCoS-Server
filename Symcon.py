@@ -1344,7 +1344,7 @@ if __name__ == '__main__':
     configSchreiben('Allgemein','x','x')
    
     #Interrupt routine GeCoS 16 IN
-    GPIO.setmode(GPIO.BCM)
+    #GPIO.setmode(GPIO.BCM)
     #Kanal0
     #GPIO.setup(intKanal0,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
     #GPIO.add_event_detect(intKanal0, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
@@ -1378,7 +1378,7 @@ if __name__ == '__main__':
     while True:
         #UDP Daten Empfangen: Wartet auf Daten. Zwei Scripte? Eins IN eins OUT?
         time.sleep(0.01)
-        #Interrupt event wird manchmal nicht erkannt, daher:
+        #Schleife für Eingang Lesen:
         for device in aIN0:
             try:
                 read_input(kanal,device)
