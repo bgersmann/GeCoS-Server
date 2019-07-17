@@ -855,11 +855,10 @@ def set_pwm(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[3])==1) {
+        if(int(arr[3])==1):
             set_bit(hByte,4,True)
-        } else {
+        else:
             set_bit(hByte,4,False)
-        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -955,11 +954,10 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[4])==1) {
+        if(int(arr[4])==1):
             set_bit(hByte,4,True)
-        } else {
+        else:
             set_bit(hByte,4,False)
-        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -970,11 +968,10 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[4])==1) {
+        if(int(arr[4])==1):
             set_bit(hByte,4,True)
-        } else {
+        else:
             set_bit(hByte,4,False)
-        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -985,11 +982,11 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[4])==1) {
+        #Status Ein/Aus:
+        if(int(arr[4])==1):
             set_bit(hByte,4,True)
-        } else {
+        else:
             set_bit(hByte,4,False)
-        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -1000,11 +997,10 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[3])==1) {
+        if(int(arr[3])==1):
             set_bit(hByte,4,True)
-        } else {
+        else:
             set_bit(hByte,4,False)
-        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
