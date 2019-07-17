@@ -822,7 +822,14 @@ def set_pwm(arr):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
-    if int(arr[3]) <0 or int(arr[3]) >15:
+    if int(arr[3]) < 0 or int(arr[3]) >1:
+        log("Status ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";PWM-Status ungueltig}"
+        sendUDP(sArr) 
+        return
+    if int(arr[4]) <0 or int(arr[4]) >15:
         log("Kanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
@@ -843,10 +850,16 @@ def set_pwm(arr):
         #LED_OFF 4096*X%-1
         #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
         #Array 3= Kanal 4 = wert
-        i=int(arr[3])
+        i=int(arr[4])
         wert = int(round(4095*(int(arr[4])/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
+        #Status Ein/Aus:
+        if(int(arr[3])==1) {
+            set_bit(hByte,4,True)
+        } else {
+            set_bit(hByte,4,False)
+        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -891,7 +904,21 @@ def set_rgbw(arr):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
-    if int(arr[3]) <0 or int(arr[3]) >3:
+    if int(arr[3]) <0 or int(arr[3]) >1:
+        log("StatusW ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";StatusW ungueltig}"
+        sendUDP(sArr) 
+        return
+    if int(arr[4]) <0 or int(arr[4]) >1:
+        log("StatusRGB ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";StatusRGB ungueltig}"
+        sendUDP(sArr) 
+        return
+    if int(arr[5]) <0 or int(arr[5]) >3:
         log("Kanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
@@ -912,21 +939,27 @@ def set_rgbw(arr):
         #LED_OFF 4096*X%-1
         #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
         #Array 3= Kanal 4 = wert
-        i=int(arr[3])
+        i=int(arr[5])
         if i==1:
             i+=3
         elif i==2:
             i+=6
         elif i==3:
             i+=9
-        r=int(arr[4])
-        g=int(arr[5])
-        b=int(arr[6])
-        w=int(arr[7])
+        r=int(arr[6])
+        g=int(arr[7])
+        b=int(arr[8])
+        w=int(arr[9])
         #Rot:
         wert = int(round(4095*(r/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
+        #Status Ein/Aus:
+        if(int(arr[4])==1) {
+            set_bit(hByte,4,True)
+        } else {
+            set_bit(hByte,4,False)
+        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -936,6 +969,12 @@ def set_rgbw(arr):
         wert = int(round(4095*(g/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
+        #Status Ein/Aus:
+        if(int(arr[4])==1) {
+            set_bit(hByte,4,True)
+        } else {
+            set_bit(hByte,4,False)
+        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -945,6 +984,12 @@ def set_rgbw(arr):
         wert = int(round(4095*(b/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
+        #Status Ein/Aus:
+        if(int(arr[4])==1) {
+            set_bit(hByte,4,True)
+        } else {
+            set_bit(hByte,4,False)
+        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -954,6 +999,12 @@ def set_rgbw(arr):
         wert = int(round(4095*(w/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
+        #Status Ein/Aus:
+        if(int(arr[3])==1) {
+            set_bit(hByte,4,True)
+        } else {
+            set_bit(hByte,4,False)
+        }
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
