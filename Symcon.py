@@ -856,9 +856,9 @@ def set_pwm(arr):
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
         if(int(arr[3])==1):
-            set_bit(hByte,4,True)
+            hByte=set_bit(hByte,4,False)
         else:
-            set_bit(hByte,4,False)
+            hByte=set_bit(hByte,4,True)
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -903,11 +903,11 @@ def set_rgbw(arr):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
-    if int(arr[3]) <0 or int(arr[3]) >1:
-        log("StatusW ungueltig","ERROR")
+    if int(arr[3]) <0 or int(arr[3]) >3:
+        log("PWMKanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
-        sArr+=";StatusW ungueltig}"
+        sArr+=";PWM-Kanal ungueltig}"
         sendUDP(sArr) 
         return
     if int(arr[4]) <0 or int(arr[4]) >1:
@@ -917,14 +917,13 @@ def set_rgbw(arr):
         sArr+=";StatusRGB ungueltig}"
         sendUDP(sArr) 
         return
-    if int(arr[5]) <0 or int(arr[5]) >3:
-        log("Kanal ungueltig","ERROR")
+    if int(arr[5]) <0 or int(arr[5]) >1:
+        log("StatusW ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
-        sArr+=";PWM-Kanal ungueltig}"
+        sArr+=";StatusW ungueltig}"
         sendUDP(sArr) 
         return
-
     sStatus=""
     try:
         while True:
@@ -938,7 +937,7 @@ def set_rgbw(arr):
         #LED_OFF 4096*X%-1
         #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
         #Array 3= Kanal 4 = wert
-        i=int(arr[5])
+        i=int(arr[3])
         if i==1:
             i+=3
         elif i==2:
@@ -955,9 +954,9 @@ def set_rgbw(arr):
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
         if(int(arr[4])==1):
-            set_bit(hByte,4,True)
+            hByte=set_bit(hByte,4,False)
         else:
-            set_bit(hByte,4,False)
+            hByte=set_bit(hByte,4,True)
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -969,9 +968,9 @@ def set_rgbw(arr):
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
         if(int(arr[4])==1):
-            set_bit(hByte,4,True)
+            hByte=set_bit(hByte,4,False)
         else:
-            set_bit(hByte,4,False)
+            hByte=set_bit(hByte,4,True)
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -984,9 +983,9 @@ def set_rgbw(arr):
         #Status Ein/Aus:
         #Status Ein/Aus:
         if(int(arr[4])==1):
-            set_bit(hByte,4,True)
+            hByte=set_bit(hByte,4,False)
         else:
-            set_bit(hByte,4,False)
+            hByte=set_bit(hByte,4,True)
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -997,10 +996,10 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[3])==1):
-            set_bit(hByte,4,True)
+        if(int(arr[5])==1):
+            hByte=set_bit(hByte,4,False)
         else:
-            set_bit(hByte,4,False)
+            hByte=set_bit(hByte,4,True)
         plexer.bus.write_byte_data(adresse,startAdr,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+1,0x00)
         plexer.bus.write_byte_data(adresse,startAdr+2,lByte)
@@ -1261,7 +1260,7 @@ def modulSuche():
                         set_input_konfig(kanalSearch,device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("IN")
+                        befehl+="{0}".format("IN")
                         befehl+="}"
                         sendUDP(befehl)
                     elif device>=0x24 and device <=0x27:
@@ -1276,7 +1275,7 @@ def modulSuche():
                         set_output_konfig(kanalSearch,device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("OUT")
+                        befehl+="{0}".format("OUT")
                         befehl+="}"
                         sendUDP(befehl)
                     elif device>=0x50 and device <=0x57:
@@ -1291,7 +1290,7 @@ def modulSuche():
                         set_pwm_konfig(kanalSearch,device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("PWM")
+                        befehl+="{0}".format("PWM")
                         befehl+="}"
                         sendUDP(befehl)
                     elif device>=0x58 and device <=0x5f:
@@ -1306,7 +1305,7 @@ def modulSuche():
                         set_pwm_konfig(kanalSearch,device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("RGBW")
+                        befehl+="{0}".format("RGBW")
                         befehl+="}"
                         sendUDP(befehl)
                     elif device>=0x68 and device <=0x6b:
@@ -1320,7 +1319,7 @@ def modulSuche():
                             aANA2.append(device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("ANA")
+                        befehl+="{0}".format("ANA")
                         befehl+="}"
                         sendUDP(befehl)
                     else:
@@ -1329,7 +1328,7 @@ def modulSuche():
                         log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0};".format("UNB")
+                        befehl+="{0}".format("UNB")
                         befehl+="}"
                         sendUDP(befehl)
             except:
