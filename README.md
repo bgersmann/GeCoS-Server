@@ -27,7 +27,8 @@ Funktionen:
 "PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;PWMKanal;Status;Wert} Status=0/1 (0=Aus,1=Ein), Wert=0-100
 "RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W} Status=0/1 (0=Aus,1=Ein), R/G/B/W=0-100
 "SAM" = "Status Analog Module" -> {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}
-
+"RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}
+"SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS}
 Kanal 0-2
 
 MOD - Antworten

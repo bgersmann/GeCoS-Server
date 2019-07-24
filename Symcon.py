@@ -3,9 +3,11 @@
 import smbus
 import time
 import datetime
+from datetime import datetime
 import socket
 import _thread
 import configparser
+import os
 import RPi.GPIO as GPIO
 
 #Status Variable 16IN 1x pro Bus mit 8 Werten
@@ -33,6 +35,8 @@ aRGBW2= []
 aANA0= []
 aANA1= []
 aANA2= []
+
+#MUX:
 class multiplex:
     
     def __init__(self, bus):
@@ -47,19 +51,153 @@ class multiplex:
         else : action = 0x00
         self.bus.write_byte_data(address,0x04,action)  #0x04 is the register for switching channels 
 
+
+#RTC:
+def _bcd_to_int(x):
+    # Decode 2x4 bit BCD to byte value
+    return int((x//16)*10 + x%16)
+
+def _int_to_bcd(x):
+    # Encode byte value to BCD
+    return int((x//10)*16 + x%10)
+
+#http://www.netzmafia.de/skripten/hardware/RasPi/Projekt-RTC/DS1307_lib.py
+class DS1307():
+    DS_REG_SECONDS = 0x00
+    DS_REG_MINUTES = 0x01
+    DS_REG_HOURS   = 0x02
+    DS_REG_DOW     = 0x03
+    DS_REG_DAY     = 0x04
+    DS_REG_MONTH   = 0x05
+    DS_REG_YEAR    = 0x06
+    DS_REG_CONTROL = 0x07
+
+    def __init__(self, twi=1, addr=0x68):
+        self._bus = smbus.SMBus(twi)
+        self._addr = addr
+
+    def _read_seconds(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_SECONDS))
+
+    def _read_minutes(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MINUTES))
+
+    def _read_hours(self):
+        d = self._bus.read_byte_data(self._addr, self.DS_REG_HOURS)
+        if (d == 0x64):    # 12-Std.-Modus
+            if ((d & 0b00100000) > 0):
+                # Umrechnen auf 24-Std.-Modus
+                return _bcd_to_int(d & 0x3F) + 12
+        return _bcd_to_int(d & 0x3F)
+
+    def _read_dow(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_DOW))
+
+    def _read_day(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_DAY))
+
+    def _read_month(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MONTH))
+
+    def _read_year(self):
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_YEAR))
+
+    def read_all(self):
+        # Gibt eine Liste zurueck: (year, month, day, dow, hours, minutes, seconds).
+        return (self._read_year(), self._read_month(), self._read_day(),
+               self._read_dow(), self._read_hours(), self._read_minutes(),
+               self._read_seconds())
+
+    def read_str(self, century=20):
+        # Gibt einen Datum/Zeit-String im Format 'YYYY-DD-MM HH:MM:SS' zurueck.
+        return '%04d-%02d-%02d %02d:%02d:%02d' % (century*100 + self._read_year(),
+               self._read_month(), self._read_day(), self._read_hours(),
+               self._read_minutes(), self._read_seconds())
+
+    def read_datetime(self, century=20, tzinfo=None):
+        # Gibt ein datetime.datetime Objekt zurueck.
+        return datetime(century*100 + self._read_year(),
+               self._read_month(), self._read_day(), self._read_hours(),
+               self._read_minutes(), self._read_seconds(), 0, tzinfo=tzinfo)
+
+    def set_clock(self, century=20):
+        # Liest einen Datum/Zeit-String im Format 'MMDDhhmmYYss' aus der RTC 
+        # und setzt das Systemdatum mittels date-Kommando.
+        cmd = 'sudo date %02d%02d%02d%02d%04d.%02d' % (self._read_month(),
+              self._read_day(), self._read_hours(), self._read_minutes(),
+              century*100 + self._read_year(), self._read_seconds())
+        os.system(cmd)
+
+
+    def write_all(self, seconds=None, minutes=None, hours=None, dow=None,
+                  day=None, month=None, year=None):
+        # Setzt Datum und Uhrzeit der RTC, jedoch nur die nicht-None-Werte.
+        # Prueft auf Einhaltung der zulaessigen Wertegrenzen:
+        #        seconds [0-59], minutes [0-59], hours [0-23],
+        #        dow [1-7], day [1-31], month [1-12], year [0-99].
+        if seconds is not None:
+            if seconds < 0 or seconds > 59:
+                raise ValueError('Seconds out of range [0-59].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_SECONDS, _int_to_bcd(seconds))
+
+        if minutes is not None:
+            if minutes < 0 or minutes > 59:
+                raise ValueError('Minutes out of range [0-59].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_MINUTES, _int_to_bcd(minutes))
+
+        if hours is not None:
+            if hours < 0 or hours > 23:
+                raise ValueError('Hours out of range [0-23].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_HOURS, _int_to_bcd(hours))
+
+        if year is not None:
+            if year < 0 or year > 99:
+                raise ValueError('Year out of range [0-99].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_YEAR, _int_to_bcd(year))
+
+        if month is not None:
+            if month < 1 or month > 12:
+                raise ValueError('Month out of range [1-12].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_MONTH, _int_to_bcd(month))
+
+        if day is not None:
+            if day < 1 or day > 31:
+                raise ValueError('Day out of range [1-31].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_DAY, _int_to_bcd(day))
+
+        if dow is not None:
+            if dow < 1 or dow > 7:
+                raise ValueError('DOW out of range [1-7].')
+            self._bus.write_byte_data(self._addr, self.DS_REG_DOW, _int_to_bcd(dow))
+
+    def write_datetime(self, dto):
+        # Setzt Datum/Zeit der RTC aus dem Inhalt eines datetime.datetime-Objekts.
+        # isoweekday() liefert: Montag = 1, Dienstag = 2, ..., Sonntag = 7;
+        # RTC braucht: Sonntag = 1, Montag = 2, ..., Samstag = 7
+        wd = dto.isoweekday() + 1 # 1..7 -> 2..8
+        if wd == 8:               # Sonntag
+            wd = 1
+        self.write_all(dto.second, dto.minute, dto.hour, wd,
+                       dto.day, dto.month, dto.year % 100)
+
+    def write_now(self):
+        # Aequivalent zu write_datetime(datetime.datetime.now()).
+        self.write_datetime(datetime.now())
+
+
 #Konfiguration schreiben, wenn nicht vorhanden, anlegen, sonst gewünschte Daten hinzufügen/Anpassen
 def configSchreiben(bereich,wert1, wert2):
     config = configparser.ConfigParser()
     config.read('Config.cfg')
     if config.has_section('Allgemein') != True:
         config['Allgemein'] = {'IP':'127.0.0.1','Port':'8000',
-                            'StartZeit':str(datetime.datetime.now())}
+                            'StartZeit':str(datetime.now())}
         
     if bereich=='Allgemein':       
         if config.has_option('Allgemein','StartZeit'):
-            config.set('Allgemein','StartZeit',str(datetime.datetime.now()))
+            config.set('Allgemein','StartZeit',str(datetime.now()))
         else:                    
-            config['Allgemein'] = {'StartZeit':str(datetime.datetime.now())}
+            config['Allgemein'] = {'StartZeit':str(datetime.now())}
     else:
         if config.has_section(bereich):
             if config.has_option(bereich,wert1):
@@ -232,6 +370,9 @@ def getUDP():
                     rgbwAll()
                 elif GeCoSInData=="SAO":
                     ReadOutAll()
+                elif GeCoSInData=="RRTC":
+                    read_rtc()
+                    #RTC lesen
                 elif len(GeCoSInData)>=7: #13
                     arr=GeCoSInData.split(";")
                     if arr[0]=="SOM":
@@ -242,6 +383,9 @@ def getUDP():
                         set_rgbw(arr)
                     elif arr[0]=="SAM":
                         read_analog(arr)
+                    elif arr[0]=="SRTC":
+                        #RTC Setzen
+                        set_rtc(arr)
                     else:
                         GeCoSInData.replace("{","")
                         GeCoSInData.replace("}","")
@@ -528,7 +672,58 @@ def interrutpKanal(pin):
     else:
         log("Kanal ungültig","ERROR")
         kanal=0
-            
+
+def read_rtc():
+    global statusI2C
+    while True:
+        if statusI2C==1:
+            break
+        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
+        time.sleep(0.001)
+
+    try:
+        statusI2C=0
+        plexer.channel(mux,3)
+        rtctime = ds.read_datetime()
+        sArr="{RRTC;"
+        sArr+= rtctime.strftime("%d;%m;%Y;%H;%M;%S;OK}")
+        sendUDP(sArr)
+        statusI2C=1
+    except: 
+        statusI2C=1
+        sArr="{RRTC;"
+        sArr+="Fehler RTC lesen}"
+        sendUDP(sArr) 
+        log("Error RTC lesen","ERROR") 
+
+
+def set_rtc(arr):
+    global statusI2C
+    while True:
+        if statusI2C==1:
+            break
+        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
+        time.sleep(0.001)
+    try:
+        statusI2C=0
+        str_dto= "{0}/{1}/{2} {3}:{4}:{5}".format(arr[2],arr[1],arr[3],arr[4],arr[5],arr[6])
+        dto = datetime.strptime(str(str_dto), '%m/%d/%Y %H:%M:%S')
+        plexer.channel(mux,3)
+        ds.write_datetime(dto)
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";OK}"
+        sendUDP(sArr) 
+        statusI2C=1
+    except: 
+        statusI2C=1
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";Fehler RTC setzen}"
+        sendUDP(sArr) 
+        log("Error RTC setzen","ERROR") 
+        
+
 def read_analog(arr):
     # "SAM";I2C Kanal;Adresse;Channel-Analog;Resolution;Amplifier
     # {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}
@@ -1407,7 +1602,7 @@ if __name__ == '__main__':
     plexer.channel(mux,kanal)
     time.sleep(0.01)
     modulSuche()
-    log(datetime.datetime.now())
+    log(datetime.now())
     log("UDP Port: {0}".format(miniServerPort))
 
     #TCP Socket:
@@ -1417,6 +1612,12 @@ if __name__ == '__main__':
     tcpSocket.listen(5)
     thread_gecosOut()
 
+
+    #RTC Lesen:
+    plexer.channel(mux,3)  
+    ds = DS1307(bus, 0x68)
+    rtctime = ds.read_datetime()
+    print ("DS1307/DS3231: " + rtctime.strftime("%d-%m-%Y %H:%M:%S"))
     #Interrupt:
     # thread_interrupt(intKanal0)
     # thread_interrupt(intKanal1)
