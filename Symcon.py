@@ -97,7 +97,7 @@ class DS1307():
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_DAY))
 
     def _read_month(self):
-        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MONTH))
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MONTH)&0b01111111)
 
     def _read_year(self):
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_YEAR))
