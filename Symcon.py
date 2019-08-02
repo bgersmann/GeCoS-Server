@@ -229,7 +229,7 @@ def _check_i2c():
             return True
         else:
             iCnt+=1
-            if iCnt >= 10:
+            if iCnt >= 30:
                 log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
             if iCnt>= 2000:
                 return False
@@ -596,7 +596,7 @@ def ReadOutAll():
         
 
 def pwmAll():
-    global statusI2C,aPWM0,aPWM1,aPWM2,aRGBW0,aRGBW1,aRGBW2
+    global statusI2C,aPWM0,aPWM1,aPWM2
     for kanal in range(3):
         if kanal==0:
             for device in aPWM0:
@@ -622,7 +622,7 @@ def pwmAll():
 
 
 def rgbwAll():
-    global statusI2C,aPWM0,aPWM1,aPWM2,aRGBW0,aRGBW1,aRGBW2
+    global statusI2C,aRGBW0,aRGBW1,aRGBW2
     for kanal in range(3):
         if kanal==0:
             for device in aRGBW0:
@@ -888,7 +888,7 @@ def read_pwm(kanal, adresse):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
-        
+    
     if _check_i2c() == False:
         return
         
@@ -904,18 +904,22 @@ def read_pwm(kanal, adresse):
         lByte=plexer.bus.read_byte_data(adresse,startAdr+2)
         #HighByte
         hByte=plexer.bus.read_byte_data(adresse,startAdr+3)
+        tmpByte=0
+        tmpByte=(hByte >> 4) & 0b0000001
         wert=0
-        wert = wert*256+int(hByte)
+        wert = wert*256+int(hByte& 0b0001111)
         wert = wert*256+int(lByte)
-
+        if wert==0:
+            wert=0
+        else:
+            wert=wert
         # if(int(arr[4])==1):
         #     hByte=set_bit(hByte,4,False)
         # else:
         #     hByte=set_bit(hByte,4,True)
 
         #PWM Status
-        tmpByte=(hbyte >> 4) & 0b0000001
-        if tmpByte==1:
+        if tmpByte==0:
             sArr+= "1;"
         else:
             sArr+= "0;"
@@ -948,11 +952,19 @@ def read_rgbw(kanal, adresse):
         
     statusI2C=0
     plexer.channel(mux,kanal)
-    #{PWM;I2C-Kanal;Adresse;Kanal;Wert}
+    #{RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W}
     #befehl="{0};{1};".format(kanal,hex(adresse))
     i2 = 0
     sArr="{"
     sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+    hByteW=0
+    hByteR=0
+    r=0
+    g=0
+    b=0
+    w=0
+    i3=0
+    print("test")
     for i in range(16): #16
         startAdr=int(i*4+6)
         #LowByte
@@ -960,41 +972,125 @@ def read_rgbw(kanal, adresse):
         #HighByte
         hByte=plexer.bus.read_byte_data(adresse,startAdr+3)
         wert=0
-        wert = wert*256+int(hByte)
+        wert = wert*256+int(hByte& 0b0001111)
         wert = wert*256+int(lByte)
-        #wert=int.from_bytes(lByte+hByte,byteorder="big")
-        # if wert==0:
-        #     wert=0
+        # #PWM Status
+        # tmpByte=(hbyte >> 4) & 0b0000001
+        # if tmpByte==1:
+        #     sArr+= "1;"
         # else:
-        #     wert=round((wert/4095)*100)
-        sArr+= str(wert)+";"
+        #     sArr+= "0;"
+        if i3==0:
+            r=wert
+            hByteR=hByte
+        elif i3==1:
+            g=wert
+        elif i3==2:
+            b=wert
+        elif i3==3:
+            w=wert
+            hByteW=hByte
+
+        # sArr+= str(wert)+";"
         if i2==0:
               if i == i2+3:
                 i2+=1
-                sArr+="OK}"
+                #PWM Status W
+                iSW=0
+                tmpByte=(hByteW >> 4) & 0b0000001
+                if tmpByte==0:
+                    iSW=1
+                else:
+                    iSW=0
+                 #PWM Status R
+                iSR=0
+                tmpByte=(hByteR >> 4) & 0b0000001
+                if tmpByte==0:
+                    iSR=1
+                else:
+                    iSR=0
+                sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
                 sendUDP(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+                r=0
+                g=0
+                b=0
+                w=0
         if i2==1:
             if i == i2+6:
                 i2+=1
-                sArr+="OK}"
+                #PWM Status W
+                iSW=0
+                tmpByte=(hByteW >> 4) & 0b0000001
+                if tmpByte==1:
+                    iSW=1
+                else:
+                    iSW=0
+                 #PWM Status R
+                iSR=0
+                tmpByte=(hByteR >> 4) & 0b0000001
+                if tmpByte==1:
+                    iSR=1
+                else:
+                    iSR=0
+                sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
                 sendUDP(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+                r=0
+                g=0
+                b=0
+                w=0
         if i2==2:
             if i== i2+9:
                 i2+=1
-                sArr+="OK}"
+                #PWM Status W
+                iSW=0
+                tmpByte=(hByteW >> 4) & 0b0000001
+                if tmpByte==1:
+                    iSW=1
+                else:
+                    iSW=0
+                 #PWM Status R
+                iSR=0
+                tmpByte=(hByteR >> 4) & 0b0000001
+                if tmpByte==1:
+                    iSR=1
+                else:
+                    iSR=0
+                sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
                 sendUDP(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+                r=0
+                g=0
+                b=0
+                w=0
         if i==15:
             i2+=1
-            sArr+="OK}"
+            #PWM Status W
+            iSW=0
+            tmpByte=(hByteW >> 4) & 0b0000001
+            if tmpByte==1:
+                iSW=1
+            else:
+                iSW=0
+            #PWM Status R
+            iSR=0
+            tmpByte=(hByteR >> 4) & 0b0000001
+            if tmpByte==1:
+                iSR=1
+            else:
+                iSR=0
+            sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
             sendUDP(sArr)
             sArr="{"
             sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
+            r=0
+            g=0
+            b=0
+            w=0
     statusI2C=1
 
 def set_pwm(arr):
@@ -1404,8 +1500,6 @@ def read_input(kanal,adresse, manual=0):
 def modulSuche():
     global statusI2C
     global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
-    if _check_i2c() == False:
-        return
     #Daten löschen:
     aOut0 =[]
     aOut1 =[]
@@ -1422,6 +1516,10 @@ def modulSuche():
     aRGBW0 =[]
     aRGBW1 =[]
     aRGBW2 =[]
+    if _check_i2c() == False:
+        print("i2c belegt")
+        return
+    statusI2C=0
     for kanalSearch in range(3):        
         log("Suche Bus: {0} Kanal: {1}".format(bus,kanalSearch))
         plexer.channel(mux,kanalSearch)
@@ -1444,7 +1542,12 @@ def modulSuche():
                             aIN1.append(device)
                         elif kanalSearch==2:
                             aIN2.append(device)
+                        statusI2C=1
                         set_input_konfig(kanalSearch,device)
+                        if _check_i2c() == False:
+                            print("i2c belegt")
+                            return
+                        statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("IN")
@@ -1459,7 +1562,12 @@ def modulSuche():
                             aOut1.append(device)
                         elif kanalSearch==2:
                             aOut2.append(device)
+                        statusI2C=1
                         set_output_konfig(kanalSearch,device)
+                        if _check_i2c() == False:
+                            print("i2c belegt")
+                            return
+                        statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("OUT")
@@ -1474,7 +1582,12 @@ def modulSuche():
                             aPWM1.append(device)
                         elif kanalSearch==2:
                             aPWM2.append(device)
+                        statusI2C=1
                         set_pwm_konfig(kanalSearch,device)
+                        if _check_i2c() == False:
+                            print("i2c belegt")
+                            return
+                        statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("PWM")
@@ -1489,7 +1602,12 @@ def modulSuche():
                             aRGBW1.append(device)
                         elif kanalSearch==2:
                             aRGBW2.append(device)
+                        statusI2C=1
                         set_pwm_konfig(kanalSearch,device)
+                        if _check_i2c() == False:
+                            print("i2c belegt")
+                            return
+                        statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("RGBW")
@@ -1511,7 +1629,6 @@ def modulSuche():
                         sendUDP(befehl)
                     else:
                         tmpUnb=tmpUnb+hex(device)+";"
-                        configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',hex(device))
                         log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
@@ -1526,6 +1643,7 @@ def modulSuche():
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16PWM',tmpPWM)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOSANA4',tmpANA)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16RGBW',tmpRGBW)  
+    statusI2C=1
         
 def bit_from_string(string, index):
     i=int(string)
@@ -1587,7 +1705,6 @@ if __name__ == '__main__':
     #Kanal2
     #GPIO.setup(intKanal2,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
     #GPIO.add_event_detect(intKanal2, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
-    
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
     plexer = multiplex(bus)
