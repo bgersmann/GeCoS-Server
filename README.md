@@ -24,8 +24,8 @@ Funktionen:
 "SPWM" = Status All PWM -> Liest alle PWM Module aus und sendet aktuellen Status
 "SRGBW" = Status All RGBW -> Liest alle RGBW Module aus und sendet aktuellen Status
 "SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B
-"PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;PWMKanal;Status;Wert} Status=0/1 (0=Aus,1=Ein), Wert=0-100
-"RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W} Status=0/1 (0=Aus,1=Ein), R/G/B/W=0-100
+"PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;PWMKanal;Status;Wert} Status=0/1 (0=Aus,1=Ein), Wert=0-4095
+"RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W} Status=0/1 (0=Aus,1=Ein), R/G/B/W=0-4095
 "SAM" = "Status Analog Module" -> {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}
 "RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS}
@@ -38,4 +38,33 @@ MOD - Antworten
 {MOD;0;0x58;RGBW}   -> RGBW erkannt
 {MOD;0;0x68;ANA}    -> Analog erkannt
 {MOD;0;0x05;UNB}    -> Unbekanntes i2c device
+
+Einrichten als Service:
+
+sudo nano gecos.service
+######
+[Unit]
+Description=GeCoS WebService
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/Symcon.py
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
+######
+
+
+sudo chmod 644 /lib/systemd/system/gecos.service
+chmod +x /usr/local/bin/Symcon.py
+sudo systemctl daemon-reload
+sudo systemctl enable gecos.service
+sudo systemctl start gecos.service
+sudo systemctl status gecos.service
+sudo systemctl restart gecos.service
+sudo systemctl stop gecos.service
+
+
 

@@ -17,7 +17,6 @@ statIN2 = [0,0,0,0,0,0,0,0]
 
 #Globale Variablen
 statusI2C = 1
-statusRIP = 1
 clSocket = ""
 clIP = ""
 aIN0 = []
@@ -71,6 +70,9 @@ class DS1307():
     DS_REG_MONTH   = 0x05
     DS_REG_YEAR    = 0x06
     DS_REG_CONTROL = 0x07
+    DS_REG_TEMP_HSB = 0x11
+    DS_REG_TEMP_LSB = 0x12
+    
 
     def __init__(self, twi=1, addr=0x68):
         self._bus = smbus.SMBus(twi)
@@ -78,7 +80,7 @@ class DS1307():
 
     def _read_seconds(self):
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_SECONDS))
-
+    
     def _read_minutes(self):
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MINUTES))
 
@@ -97,10 +99,15 @@ class DS1307():
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_DAY))
 
     def _read_month(self):
-        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MONTH))
+        return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_MONTH)&0b01111111)
 
     def _read_year(self):
         return _bcd_to_int(self._bus.read_byte_data(self._addr, self.DS_REG_YEAR))
+
+    def read_temp(self):
+        byte_tmsb = self._bus.read_byte_data(self._addr,self.DS_REG_TEMP_HSB)
+        byte_tlsb = bin(self._bus.read_byte_data(self._addr,self.DS_REG_TEMP_LSB))[2:].zfill(8)
+        return byte_tmsb+int(byte_tlsb[0])*2**(-1)+int(byte_tlsb[1])*2**(-2)
 
     def read_all(self):
         # Gibt eine Liste zurueck: (year, month, day, dow, hours, minutes, seconds).
@@ -214,6 +221,21 @@ def configSchreiben(bereich,wert1, wert2):
         config.write(configfile)
         configfile.close
 
+def _check_i2c():
+    global statusI2C
+    iCnt=0
+    while True:
+        if statusI2C==1:
+            return True
+        else:
+            iCnt+=1
+            if iCnt >= 10:
+                log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
+            if iCnt>= 2000:
+                return False
+            time.sleep(0.001)
+    return False
+
 def set_output_konfig(kanal,adresse):
     global statusI2C
     if adresse <0x24 or adresse > 0x27:
@@ -223,11 +245,8 @@ def set_output_konfig(kanal,adresse):
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig","ERROR")
         return
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     statusI2C=0
     #Konfiguration als Ausgangsmodul:
     try:        
@@ -249,11 +268,8 @@ def set_pwm_konfig(kanal, adresse):
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig","ERROR")
         return
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     statusI2C=0
     try:
         plexer.channel(mux,kanal)
@@ -282,11 +298,8 @@ def set_input_konfig(kanal,adresse):
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig","ERROR")
         return
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     statusI2C=0
     #Konfiguration als Ausgangsmodul:
     try:
@@ -320,13 +333,13 @@ def sendUDP(data):
     try:
         res=clSocket.send(data.encode())
     except IOError as err:
-        log("Fehler:{0} ; {1}".format(str(err),data),"ERROR")
+        log("UDP-Fehler:{0} ; {1}".format(str(err),data),"ERROR")
     #Daten pruefen:
     if (int(res)==int(data.encode().__len__())):
-        log("Gesendet: {0} : {1}".format(clIP,data))
+        log("UDP-Gesendet: {0} : {1}".format(clIP,data))
     else:
-        log("Fehler. Gesendet: {0} Empfangen: {1}".format(data.__len__(),res),"ERROR")
-        log("Fehlerdaten: {0}".format(data),"ERROR")
+        log("UDP-Fehler. Gesendet: {0} Empfangen: {1}".format(data.__len__(),res),"ERROR")
+        log("UDP-Fehlerdaten: {0}".format(data),"ERROR")
 
 def getUDP():
     global statusI2C
@@ -435,18 +448,15 @@ def read_output(kanal,adresse):
     sArr="{"
     sArr+="SAO;{0};{1};".format(kanal,hex(adresse))
     try:
-        while True:
-            if statusI2C==1:
-                break
-            log("I2C Status: {0}".format(str(statusI2C))) 
-            time.sleep(0.001)            
+        if _check_i2c() == False:
+            return         
         
         statusI2C=0
         #Bytes fuer Bank A + B auslesen
         plexer.channel(mux,kanal) 
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
-        iOut = [iOutA, iOutB]
+        iOut = [iOutB, iOutA]
         i=int.from_bytes(iOut,"big")
         sArr+="{0};".format(i)
         # for i in range(8):
@@ -497,19 +507,16 @@ def set_output(arr):
         sendUDP(sArr) 
         return
     try:
-        while True:
-            if statusI2C==1:
-                break
-            log("I2C Status: {0}".format(str(statusI2C))) 
-            time.sleep(0.001)            
+        if _check_i2c() == False:
+            return           
         statusI2C=0
         #Bytes fuer Bank A + B auslesen
         plexer.channel(mux,kanal) 
         iOutA=plexer.bus.read_byte_data(adresse,bankA)
         iOutB=plexer.bus.read_byte_data(adresse,bankB)
         tmpArrOut=int(arr[3]).to_bytes(2,"big")
-        iOutA=tmpArrOut[0]
-        iOutB=tmpArrOut[1]
+        iOutA=tmpArrOut[1]
+        iOutB=tmpArrOut[0]
         # i=0
         # for i in range(8):
         #     if (int(arr[i+3])==1):
@@ -640,7 +647,7 @@ def rgbwAll():
                 pass    
 
 def interrutpKanal(pin):
-    global statusI2C,statusRIP
+    global statusI2C
     #Kanal nach INT Pin Wählen:
     if pin==intKanal0:
         kanal=0
@@ -649,7 +656,6 @@ def interrutpKanal(pin):
                 read_input(kanal,device,1)
             except:
                 statusI2C=1
-                statusRIP=1
             pass        
     elif pin==intKanal1:
         kanal=1
@@ -658,7 +664,6 @@ def interrutpKanal(pin):
                 read_input(kanal,device,1)
             except:
                 statusI2C=1
-                statusRIP=1
             pass
     elif pin==intKanal2:
         kanal=2
@@ -667,7 +672,6 @@ def interrutpKanal(pin):
                 read_input(kanal,device,1)
             except:
                 statusI2C=1
-                statusRIP=1
             pass
     else:
         log("Kanal ungültig","ERROR")
@@ -675,18 +679,17 @@ def interrutpKanal(pin):
 
 def read_rtc():
     global statusI2C
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
 
     try:
         statusI2C=0
         plexer.channel(mux,3)
         rtctime = ds.read_datetime()
         sArr="{RRTC;"
-        sArr+= rtctime.strftime("%d;%m;%Y;%H;%M;%S;OK}")
+        sArr+= rtctime.strftime("%d;%m;%Y;%H;%M;%S;")
+        sArr+= "{0};".format(ds.read_temp())
+        sArr+="OK}"
         sendUDP(sArr)
         statusI2C=1
     except: 
@@ -699,11 +702,8 @@ def read_rtc():
 
 def set_rtc(arr):
     global statusI2C
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     try:
         statusI2C=0
         str_dto= "{0}/{1}/{2} {3}:{4}:{5}".format(arr[2],arr[1],arr[3],arr[4],arr[5],arr[6])
@@ -772,11 +772,8 @@ def read_analog(arr):
         sendUDP(sArr) 
         return
             
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
         
     statusI2C=0
     plexer.channel(mux,kanal)
@@ -892,11 +889,8 @@ def read_pwm(kanal, adresse):
         sendUDP(sArr) 
         return
         
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
         
     statusI2C=0
     plexer.channel(mux,kanal)
@@ -913,11 +907,19 @@ def read_pwm(kanal, adresse):
         wert=0
         wert = wert*256+int(hByte)
         wert = wert*256+int(lByte)
-        #wert=int.from_bytes(lByte+hByte,byteorder="big")
-        if wert==0:
-            wert=0
+
+        # if(int(arr[4])==1):
+        #     hByte=set_bit(hByte,4,False)
+        # else:
+        #     hByte=set_bit(hByte,4,True)
+
+        #PWM Status
+        tmpByte=(hbyte >> 4) & 0b0000001
+        if tmpByte==1:
+            sArr+= "1;"
         else:
-            wert=round((wert/4095)*100)
+            sArr+= "0;"
+        #PWM Wert:
         sArr+= str(wert)+";"
         sArr+="OK}"
         sendUDP(sArr)
@@ -941,11 +943,8 @@ def read_rgbw(kanal, adresse):
         sendUDP(sArr) 
         return
         
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
         
     statusI2C=0
     plexer.channel(mux,kanal)
@@ -964,10 +963,10 @@ def read_rgbw(kanal, adresse):
         wert = wert*256+int(hByte)
         wert = wert*256+int(lByte)
         #wert=int.from_bytes(lByte+hByte,byteorder="big")
-        if wert==0:
-            wert=0
-        else:
-            wert=round((wert/4095)*100)
+        # if wert==0:
+        #     wert=0
+        # else:
+        #     wert=round((wert/4095)*100)
         sArr+= str(wert)+";"
         if i2==0:
               if i == i2+3:
@@ -1017,40 +1016,43 @@ def set_pwm(arr):
         sArr+=";Kanal ungueltig}"
         sendUDP(sArr) 
         return
-    if int(arr[3]) < 0 or int(arr[3]) >1:
-        log("Status ungueltig","ERROR")
-        sArr="{"
-        sArr+=";".join(arr)
-        sArr+=";PWM-Status ungueltig}"
-        sendUDP(sArr) 
-        return
-    if int(arr[4]) <0 or int(arr[4]) >15:
-        log("Kanal ungueltig","ERROR")
+    if int(arr[3]) < 0 or int(arr[3]) >15:
+        log("PWM-Kanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";PWM-Kanal ungueltig}"
         sendUDP(sArr) 
         return
-
+    if int(arr[4]) <0 or int(arr[4]) >1:
+        log("PWM-Status ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";PWM-Status ungueltig}"
+        sendUDP(sArr) 
+        return
+    if int(arr[5]) <0 or int(arr[5]) >4095:
+        log("PWM-Wert ungueltig","ERROR")
+        sArr="{"
+        sArr+=";".join(arr)
+        sArr+=";PWM-Wert ungueltig}"
+        sendUDP(sArr) 
+        return
     sStatus=""
     try:
-        while True:
-            if statusI2C==1:
-                break
-            log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-            time.sleep(0.001)
+        if _check_i2c() == False:
+            return
         statusI2C=0
         plexer.channel(mux,kanal)
         #LED_ON Immer 0
         #LED_OFF 4096*X%-1
         #Array durchlaufen 0-15 (+1) = ausgang; ausgang*4+6 = Start Adresse LED_ON_L 
         #Array 3= Kanal 4 = wert
-        i=int(arr[4])
-        wert = int(round(4095*(int(arr[4])/100)))
+        i=int(arr[3])
+        wert = int(arr[5]) #int(round(4095*(int(arr[5])/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        if(int(arr[3])==1):
+        if(int(arr[4])==1):
             hByte=set_bit(hByte,4,False)
         else:
             hByte=set_bit(hByte,4,True)
@@ -1121,11 +1123,8 @@ def set_rgbw(arr):
         return
     sStatus=""
     try:
-        while True:
-            if statusI2C==1:
-                break
-            log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-            time.sleep(0.001)
+        if _check_i2c() == False:
+            return
         statusI2C=0
         plexer.channel(mux,kanal)
         #LED_ON Immer 0
@@ -1144,7 +1143,7 @@ def set_rgbw(arr):
         b=int(arr[8])
         w=int(arr[9])
         #Rot:
-        wert = int(round(4095*(r/100)))
+        wert = r #int(round(4095*(r/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
@@ -1158,7 +1157,7 @@ def set_rgbw(arr):
         plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
         i+=1
         #Grün:
-        wert = int(round(4095*(g/100)))
+        wert = g #int(round(4095*(g/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
@@ -1172,7 +1171,7 @@ def set_rgbw(arr):
         plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
         i+=1
         #Blau:
-        wert = int(round(4095*(b/100)))
+        wert = b #int(round(4095*(b/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
@@ -1187,7 +1186,7 @@ def set_rgbw(arr):
         plexer.bus.write_byte_data(adresse,startAdr+3,hByte)
         i+=1
         #Weiß:
-        wert = int(round(4095*(w/100)))
+        wert = w #int(round(4095*(w/100)))
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
@@ -1221,7 +1220,7 @@ def set_rgbw(arr):
         sendUDP(sArr)   
         
 def read_input(kanal,adresse, manual=0):
-    global statusI2C,statusRIP,statIN0,statIN1,statIN2
+    global statusI2C,statIN0,statIN1,statIN2
     if adresse <0x20 or adresse > 0x23:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
         sArr="{"
@@ -1244,12 +1243,6 @@ def read_input(kanal,adresse, manual=0):
     # Erster Value - Bank A, Zweiter = Bank B
     # wertAltA=statIN0[0]
     # wertAltB=statIN0[1]
-    while True:
-        if statusI2C==0 or statusRIP==0:
-            log("I2C Status: {0} RIP Status: {1}".format(str(statusI2C),str(statusRIP)),"ERROR") 
-            time.sleep(0.005)
-        else:
-            break
     wertAltA=0
     wertAltB=0
     if kanal==0:
@@ -1294,8 +1287,11 @@ def read_input(kanal,adresse, manual=0):
             wertAltA=statIN2[6]
             wertAltB=statIN2[7]
     try:
-        statusRIP=0    
+        if _check_i2c() == False:
+            print("i2c belegt")
+            return
         statusI2C=0
+        time.sleep(0.001)
         plexer.channel(mux,kanal)
         #GPIO A+B Lesen und String bauen:
         wertA=plexer.bus.read_byte_data(adresse,gpioA)
@@ -1339,7 +1335,6 @@ def read_input(kanal,adresse, manual=0):
             wertA=wertA2
             wertB=wertB2        
         statusI2C=1
-        statusRIP=1
     except OSError as err:
         statusI2C=1
         sStatus=str(err)
@@ -1409,11 +1404,8 @@ def read_input(kanal,adresse, manual=0):
 def modulSuche():
     global statusI2C
     global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"I2C Busy") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     #Daten löschen:
     aOut0 =[]
     aOut1 =[]
@@ -1617,33 +1609,35 @@ if __name__ == '__main__':
     plexer.channel(mux,3)  
     ds = DS1307(bus, 0x68)
     rtctime = ds.read_datetime()
-    print ("DS1307/DS3231: " + rtctime.strftime("%d-%m-%Y %H:%M:%S"))
+    temp = ds.read_temp()
+    print ("DS3231 Date: " + rtctime.strftime("%d.%m.%Y %H:%M:%S"))
+    print ("DS3231 Temp: {0}".format(temp))
     #Interrupt:
     # thread_interrupt(intKanal0)
     # thread_interrupt(intKanal1)
     # thread_interrupt(intKanal2)
     while True:
-        #UDP Daten Empfangen: Wartet auf Daten. Zwei Scripte? Eins IN eins OUT?
+        #Alle eingänge lesen
         time.sleep(0.01)
         #Schleife für Eingang Lesen:
         for device in aIN0:
             try:
+                kanal=0
                 read_input(kanal,device)
             except:
                 statusI2C=1
-                statusRIP=1
             pass
         for device in aIN1:
             try:
+                kanal=1
                 read_input(kanal,device)
             except:
                 statusI2C=1
-                statusRIP=1
             pass
         for device in aIN2:
             try:
+                kanal=2
                 read_input(kanal,device)
             except:
                 statusI2C=1
-                statusRIP=1
             pass
