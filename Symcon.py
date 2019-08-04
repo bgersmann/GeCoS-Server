@@ -459,17 +459,6 @@ def read_output(kanal,adresse):
         iOut = [iOutB, iOutA]
         i=int.from_bytes(iOut,"big")
         sArr+="{0};".format(i)
-        # for i in range(8):
-        #     if bit_from_string(iOutA,i)==1:
-        #         sArr+="1;"
-        #     else:
-        #         sArr+="0;"
-        # i=0
-        # for i in range(8):
-        #     if bit_from_string(iOutB,i)==1:
-        #         sArr+="1;"
-        #     else:
-        #         sArr+="0;"
         sStatus="OK"   
     except OSError as err:
         statusI2C=1
@@ -517,18 +506,6 @@ def set_output(arr):
         tmpArrOut=int(arr[3]).to_bytes(2,"big")
         iOutA=tmpArrOut[1]
         iOutB=tmpArrOut[0]
-        # i=0
-        # for i in range(8):
-        #     if (int(arr[i+3])==1):
-        #         iOutA=set_bit(iOutA,i,True)
-        #     else:
-        #         iOutA=set_bit(iOutA,i,False)
-        # i=0
-        # for i in range(8):
-        #     if (int(arr[i+11])==1):
-        #         iOutB=set_bit(iOutB,i,True)
-        #     else:
-        #         iOutB=set_bit(iOutB,i,False)           
         plexer.channel(mux,kanal)
         plexer.bus.write_byte_data(adresse,bankA,iOutA)
         plexer.bus.write_byte_data(adresse,bankB,iOutB)
@@ -797,11 +774,8 @@ def read_analog(arr):
         time.sleep(0.080)
     else:
         time.sleep(0.300)
-    while True:
-        if statusI2C==1:
-            break
-        log("I2C Status: {0}".format(str(statusI2C)),"ERROR") 
-        time.sleep(0.001)
+    if _check_i2c() == False:
+        return
     statusI2C=0
     #Je Nach Auflösung 3 oder 4Byte lesen:
     #res=3 dann 4 sonst 3
@@ -913,11 +887,6 @@ def read_pwm(kanal, adresse):
             wert=0
         else:
             wert=wert
-        # if(int(arr[4])==1):
-        #     hByte=set_bit(hByte,4,False)
-        # else:
-        #     hByte=set_bit(hByte,4,True)
-
         #PWM Status
         if tmpByte==0:
             sArr+= "1;"
@@ -974,12 +943,6 @@ def read_rgbw(kanal, adresse):
         wert=0
         wert = wert*256+int(hByte& 0b0001111)
         wert = wert*256+int(lByte)
-        # #PWM Status
-        # tmpByte=(hbyte >> 4) & 0b0000001
-        # if tmpByte==1:
-        #     sArr+= "1;"
-        # else:
-        #     sArr+= "0;"
         if i3==0:
             r=wert
             hByteR=hByte
@@ -1271,7 +1234,6 @@ def set_rgbw(arr):
         startAdr=int(i*4+6)
         hByte, lByte = bytes(divmod(wert,0x100))
         #Status Ein/Aus:
-        #Status Ein/Aus:
         if(int(arr[4])==1):
             hByte=set_bit(hByte,4,False)
         else:
@@ -1396,34 +1358,19 @@ def read_input(kanal,adresse, manual=0):
             #print("Unterschied, Senden!")
             befehl="{SAI;"
             befehl+="{0};{1};".format(kanal,hex(adresse))
-            # for i in range(8):
-            #     intSA = bit_from_string(wertA,i)
-            #     befehl+= str(intSA)+";"
-            # for i in range(8):
-            #     intSB = bit_from_string(wertB,i)
-            #     befehl+= str(intSB)+";"
-            iIn = [wertA, wertB]
+            iIn = [wertB, wertA]
             i=int.from_bytes(iIn,"big")
             befehl+="{0};".format(i)
             befehl+="OK}"
             sendUDP(befehl)
 
-        #print("Test!")
         #erneut lesen, auf änderung prüfen:
         wertA2=plexer.bus.read_byte_data(adresse,gpioA)
         wertB2=plexer.bus.read_byte_data(adresse,gpioB)
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
-        #print("Vergleich A:",wertA2,"-",wertA)
-        #print("Vergleich B:",wertB2,"-",wertB)
         if wertA2!=wertA or wertB2!=wertB:
-            # for i in range(8):
-            #     intSA = bit_from_string(wertA2,i-1)
-            #     befehl+= str(intSA)+";"
-            # for i in range(8):
-            #     intSB = bit_from_string(wertB2,i-1)
-            #     befehl+= str(intSB)+";"
-            iIn = [wertA2, wertB2]
+            iIn = [wertB2, wertA2]
             i=int.from_bytes(iIn,"big")
             befehl+="{0};".format(i)
             befehl+="OK}"
@@ -1694,7 +1641,7 @@ if __name__ == '__main__':
     #Config lesen:
     configSchreiben('Allgemein','x','x')
    
-    #Interrupt routine GeCoS 16 IN
+    #Interrupt routine GeCoS 16 IN -> in Schleife geändert
     #GPIO.setmode(GPIO.BCM)
     #Kanal0
     #GPIO.setup(intKanal0,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
@@ -1705,6 +1652,7 @@ if __name__ == '__main__':
     #Kanal2
     #GPIO.setup(intKanal2,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
     #GPIO.add_event_detect(intKanal2, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
+
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
     plexer = multiplex(bus)
@@ -1727,12 +1675,7 @@ if __name__ == '__main__':
     ds = DS1307(bus, 0x68)
     rtctime = ds.read_datetime()
     temp = ds.read_temp()
-    print ("DS3231 Date: " + rtctime.strftime("%d.%m.%Y %H:%M:%S"))
-    print ("DS3231 Temp: {0}".format(temp))
-    #Interrupt:
-    # thread_interrupt(intKanal0)
-    # thread_interrupt(intKanal1)
-    # thread_interrupt(intKanal2)
+    print ("DS3231 Date: {0} Temp: {1} ".format(rtctime.strftime("%d.%m.%Y %H:%M:%S"),str(temp)))
     while True:
         #Alle eingänge lesen
         time.sleep(0.01)
