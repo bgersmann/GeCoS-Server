@@ -2,9 +2,9 @@
 Python GeCoS Server Script. Ansprechbar per WebSocket<br>
 
 
-Befehlaufbau:<br>
-Befehl in geschweiften klammern verpackt: {} <br>
-Trennzeichen: ; <br>
+### Befehlsaufbau:<br>
+Befehl in geschweiften klammern verpackt: ```{}``` <br>
+Trennzeichen: ```;``` <br>
 Erste Info: Funktion (3Buchstaben) <br>
 2. Info: BUS 0-2 <br>
 3. Info: Modul Adresse <br> 
@@ -12,12 +12,12 @@ n. Sachinformation (z.B.: Port Status) <br>
 Antwort mit Befehl + Status <br>
 
 Bsp.: Output setzen, alle Ausgänge einschalten:  <br> 
-Befehl:     {SOM;1;0x24;65535} <br>
-Antwort:    {SOM;1;0x24;65535;OK} <br>
+Befehl:     ```{SOM;1;0x24;65535}``` <br>
+Antwort:    ```{SOM;1;0x24;65535;OK}``` <br>
 
 Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 
-Funktionen:<br>
+### Funktionen:<br>
 "SAI" = Status All IN -> Liest alle Eingangsmodule und sendet aktuellen Status<br>
 "SAO" = Status All Out -> Liest alle Ausgangsmodule und sendet aktuellen Status<br>
 "MOD" = Modulsuche -> Sucht nach Modulen und Antwortet mit Moduladressen<br>
@@ -31,7 +31,7 @@ Funktionen:<br>
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
 Kanal 0-2<br>
 
-MOD - Antworten<br>
+### MOD - Antworten<br>
 {MOD;0;0x24;OUT}    -> 16Out erkannt<br>
 {MOD;0;0x20;IN}     -> 16In erkannt<br>
 {MOD;0;0x50;PWM}    -> PWM erkannt<br>
@@ -39,24 +39,22 @@ MOD - Antworten<br>
 {MOD;0;0x68;ANA}    -> Analog erkannt<br>
 {MOD;0;0x05;UNB}    -> Unbekanntes i2c device<br>
 
-Einrichten als Service:<br>
+### Einrichten als Service:<br>
 
 sudo nano gecos.service<br>
-######
-[Unit]<br>
-Description=GeCoS WebService<br>
-After=multi-user.target<br>
+```
+[Unit]
+Description=GeCoS WebService
+After=multi-user.target
 
-[Service]<br>
-Type=simple<br>
-ExecStart=/usr/bin/python3 /usr/local/bin/Symcon.py<br>
-Restart=on-abort<br>
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/Symcon.py
+Restart=on-abort
 
-[Install]<br>
-WantedBy=multi-user.target<br>
-######
-
-
+[Install]
+WantedBy=multi-user.target
+```
 sudo chmod 644 /lib/systemd/system/gecos.service<br>
 chmod +x /usr/local/bin/Symcon.py<br>
 sudo systemctl daemon-reload<br>
