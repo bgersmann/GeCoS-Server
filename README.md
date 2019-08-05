@@ -1,21 +1,21 @@
 # GeCoS-Server
-Python GeCoS Server Script. Ansprechbar per WebSocket
+Python GeCoS Server Script. Ansprechbar per WebSocket<br>
 
 
-Befehlaufbau:
-Befehl in geschweiften klammern verpackt: {}
-Trennzeichen: ;
-Erste Info: Funktion (3Buchstaben)
-2. Info: BUS 0-2
-3. Info: Modul Adresse
-n. Sachinformation (z.B.: Port Status)
-Antwort mit Befehl + Status
+Befehlaufbau:<br>
+Befehl in geschweiften klammern verpackt: {} <br>
+Trennzeichen: ; <br>
+Erste Info: Funktion (3Buchstaben) <br>
+2. Info: BUS 0-2 <br>
+3. Info: Modul Adresse <br> 
+n. Sachinformation (z.B.: Port Status) <br> 
+Antwort mit Befehl + Status <br>
 
-Bsp.: Output setzen, alle Ausgänge einschalten: 
-Befehl:     {SOM;1;0x24;65535;}
-Antwort:    {SOM;1;0x24;65535;OK}
+Bsp.: Output setzen, alle Ausgänge einschalten:  <br> 
+Befehl:     {SOM;1;0x24;65535} <br>
+Antwort:    {SOM;1;0x24;65535;OK} <br>
 
-Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. 
+Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 
 Funktionen:<br>
 "SAI" = Status All IN -> Liest alle Eingangsmodule und sendet aktuellen Status<br>
