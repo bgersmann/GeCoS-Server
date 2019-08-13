@@ -2,6 +2,7 @@
 # encoding=utf-8
 import smbus
 import time
+import sys
 import datetime
 from datetime import datetime
 import socket
@@ -229,7 +230,7 @@ def _check_i2c():
             return True
         else:
             iCnt+=1
-            if iCnt >= 30:
+            if iCnt >= 50:
                 log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
             if iCnt>= 2000:
                 return False
@@ -535,6 +536,10 @@ def set_output(arr):
 def log(message, level="INFO"):
     timestamp= time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(time.time()))
     print("{0} {1}: {2}".format(timestamp, level, message))
+    if level=="ERROR":
+        file = open("/home/pi/logfile.log","a")
+        file.write("%s: %s\n" % (time.strftime("%d.%m.%Y %H:%M:%S"), message))
+        file.close
 
        
 def set_bit(v, index, x): #v=original wert, x= true oder false
@@ -1598,6 +1603,7 @@ def bit_from_string(string, index):
 
 if __name__ == '__main__':
     #Konfig Werte MCP:
+    log("Script gestartet","ERROR")
     bus=1       # 0 for rev1 boards etc.
     mux=0x71
     oneWire=0x18
