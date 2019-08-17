@@ -1420,7 +1420,7 @@ def read_input(kanal,adresse, manual=0):
         if kanal==1:
             if adresse==0x20:
                 statIN1[0]=wertA
-                statIN2[1]=wertB
+                statIN1[1]=wertB
             if adresse==0x21:
                 statIN1[2]=wertA
                 statIN1[3]=wertB
