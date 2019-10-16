@@ -5,7 +5,7 @@ Python GeCoS Server Script. Ansprechbar per WebSocket<br>
 ### Befehlsaufbau:<br>
 Befehl in geschweiften klammern verpackt: ```{}``` <br>
 Trennzeichen: ```;``` <br>
-Erste Info: Funktion (3Buchstaben) <br>
+Erste Info: Funktion (x-Buchstaben) <br>
 2. Info: BUS 0-2 <br>
 3. Info: Modul Adresse <br> 
 n. Sachinformation (z.B.: Port Status) <br> 
@@ -29,6 +29,8 @@ Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 "SAM" = "Status Analog Module" -> {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}  <br>
 "RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}  <br>
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
+"OWS" = One Wire Suche -> {OWS} <br>
+"OWV" = One Wire Values -> {OWV;OWDevice ID}  ( {OWV;28-01183074cbff} -> {OWV;28-01183074cbff;23.568;OK}) <br>
 Kanal 0-2<br>
 
 ### MOD - Antworten<br>
@@ -38,6 +40,9 @@ Kanal 0-2<br>
 {MOD;0;0x58;RGBW}   -> RGBW erkannt<br>
 {MOD;0;0x68;ANA}    -> Analog erkannt<br>
 {MOD;0;0x05;UNB}    -> Unbekanntes i2c device<br>
+
+## OWS -Antwort <br>
+{OWS;28-01183074cbff}
 
 ### Einrichten als Service:<br>
 

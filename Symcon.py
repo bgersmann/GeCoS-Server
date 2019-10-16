@@ -237,6 +237,83 @@ def _check_i2c():
             time.sleep(0.001)
     return False
 
+
+def oWConfig():
+    try:
+        modulesr = open("/etc/modules","r")
+        moduleStr=modulesr.read()
+        modulesr.close()
+        i2c_dev = moduleStr.find("i2c-dev")
+        ds2482 = moduleStr.find("ds2482")
+        wire = moduleStr.find("wire")
+        modules = open("/etc/modules","a")
+		#######added i2c-dev
+        if (i2c_dev==-1):
+            modules.write ("\ni2c-dev")
+            log("i2c-dev added to modules","INFO")
+        else:
+            log("i2c-dev already exists","INFO")
+		#######added ds2482
+        if (ds2482==-1):
+            modules.write ("\nds2482")
+            log("ds2482 added to modules","INFO")
+        else:
+            log("ds2482 already exists","INFO")
+        #######added wire
+        if (wire==-1):
+            modules.write ("\nwire")
+            log("wire added to modules","INFO")
+        else:
+            log("wire already exists","INFO")
+    except Exception as e: 
+        print("Fehler: "+str(e))
+    
+    print("DS2482 Konfigurieren:")
+    try:
+        os.system("echo '0x18' | sudo tee /sys/class/i2c-adapter/i2c-1/delete_device")
+    except:
+        log("DS2482 Löschen fehlgeschlagen","INFO")
+    
+    try:
+        os.system("echo 'ds2482 0x18' | sudo tee /sys/class/i2c-adapter/i2c-1/new_device")
+    except:
+        log("DS2482 bereits vrohanden ", "INFO")
+    time.sleep(2)
+
+
+def oWSuche():
+    log("1Wire Suche: ", "INFO")
+    owDeviceList= os.listdir("/sys/bus/w1/devices")
+    owDeviceList.remove ("w1_bus_master1")
+    for owDevice in owDeviceList:
+        befehl="{OWS;"
+        befehl +="{0}".format(owDevice)
+        befehl+="}"
+        sendUDP(befehl)
+        log("Gerät gefunden: " + str(owDevice), "INFO")
+
+
+def oWTemp(oWDevice):
+    try:
+        oWTempFile= open("/sys/bus/w1/devices/"+ oWDevice +"/w1_slave","r")
+        oWTempStr=oWTempFile.read()
+        oWTempFile.close()
+        #print(oWTempStr)
+        tmpPos=oWTempStr.find("t=")
+        tmpTemp=(oWTempStr[tmpPos+2:-1])
+        Temp=int(tmpTemp)/1000
+        befehl="{OWV;"
+        befehl +="{0};{1};".format(oWDevice,str(Temp))
+        befehl+="OK}"
+        sendUDP(befehl)
+        log("Device: " + str(oWDevice) + " Temp: " + str(Temp),"INFO")
+    except:
+        Temp=-99
+        log("Fehler 1Wire: {0}".format(str(oWDevice)),"ERROR")
+
+
+
+
 def set_output_konfig(kanal,adresse):
     global statusI2C
     if adresse <0x24 or adresse > 0x27:
@@ -374,6 +451,8 @@ def getUDP():
                 #print(GeCoSInData)
                 if GeCoSInData=="MOD":
                     modulSuche()
+                if GeCoSInData=="OWS":
+                    oWSuche()
                 elif GeCoSInData=="SAI":
                     interrutpKanal(intKanal0)
                     interrutpKanal(intKanal1)
@@ -397,6 +476,8 @@ def getUDP():
                         set_rgbw(arr)
                     elif arr[0]=="SAM":
                         read_analog(arr)
+                    elif arr[0]=="OWV":
+                        oWTemp(arr[1])
                     elif arr[0]=="SRTC":
                         #RTC Setzen
                         set_rtc(arr)
@@ -1732,6 +1813,9 @@ if __name__ == '__main__':
     modulSuche(1)
     log(datetime.now())
     log("UDP Port: {0}".format(miniServerPort))
+
+    #OneWire:
+    oWConfig()
 
     #TCP Socket:
     tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
