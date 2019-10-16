@@ -1449,25 +1449,27 @@ def read_input(kanal,adresse, manual=0):
         
         
 
-def modulSuche():
+def modulSuche(delete=0):
     global statusI2C
     global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
     #Daten löschen:
-    aOut0 =[]
-    aOut1 =[]
-    aOut2 =[]
-    aPWM0 =[]
-    aPWM1 =[]
-    aPWM2 =[]
-    aIN0 =[]
-    aIN1 =[]
-    aIN2 =[]
-    aANA0 =[]
-    aANA1 =[]
-    aANA2 =[] 
-    aRGBW0 =[]
-    aRGBW1 =[]
-    aRGBW2 =[]
+    if delete==1:
+        aOut0 =[]
+        aOut1 =[]
+        aOut2 =[]
+        aPWM0 =[]
+        aPWM1 =[]
+        aPWM2 =[]
+        aIN0 =[]
+        aIN1 =[]
+        aIN2 =[]
+        aANA0 =[]
+        aANA1 =[]
+        aANA2 =[] 
+        aRGBW0 =[]
+        aRGBW1 =[]
+        aRGBW2 =[]
+
     if _check_i2c() == False:
         print("i2c belegt")
         return
@@ -1489,17 +1491,32 @@ def modulSuche():
                         log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpIN=tmpIN+hex(device)+";"
                         if kanalSearch==0:
-                            aIN0.append(device)
+                            if device not in aIN0:
+                                aIN0.append(device)
+                                statusI2C=1
+                                set_input_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==1:
-                            aIN1.append(device)
+                            if device not in aIN1:
+                                aIN1.append(device)
+                                statusI2C=1
+                                set_input_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==2:
-                            aIN2.append(device)
-                        statusI2C=1
-                        set_input_konfig(kanalSearch,device)
-                        if _check_i2c() == False:
-                            print("i2c belegt")
-                            return
-                        statusI2C=0
+                            if device not in aIN2:
+                                aIN2.append(device)
+                                statusI2C=1
+                                set_input_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("IN")
@@ -1509,17 +1526,32 @@ def modulSuche():
                         log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpOut=tmpOut+hex(device)+";"
                         if kanalSearch==0:
-                            aOut0.append(device)
+                            if device not in aOut0:
+                                aOut0.append(device)
+                                statusI2C=1
+                                set_output_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==1:
-                            aOut1.append(device)
+                            if device not in aOut1:
+                                aOut1.append(device)
+                                statusI2C=1
+                                set_output_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==2:
-                            aOut2.append(device)
-                        statusI2C=1
-                        set_output_konfig(kanalSearch,device)
-                        if _check_i2c() == False:
-                            print("i2c belegt")
-                            return
-                        statusI2C=0
+                            if device not in aOut2:
+                                aOut2.append(device)
+                                statusI2C=1
+                                set_output_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("OUT")
@@ -1529,17 +1561,32 @@ def modulSuche():
                         log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpPWM=tmpPWM+hex(device)+";"
                         if kanalSearch==0:
-                            aPWM0.append(device)
+                            if device not in aPWM0:
+                                aPWM0.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==1:
-                            aPWM1.append(device)
+                            if device not in aPWM1:
+                                aPWM1.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==2:
-                            aPWM2.append(device)
-                        statusI2C=1
-                        set_pwm_konfig(kanalSearch,device)
-                        if _check_i2c() == False:
-                            print("i2c belegt")
-                            return
-                        statusI2C=0
+                            if device not in aPWM2:
+                                aPWM2.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("PWM")
@@ -1549,17 +1596,32 @@ def modulSuche():
                         log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpRGBW=tmpRGBW+hex(device)+";"
                         if kanalSearch==0:
-                            aRGBW0.append(device)
+                            if device not in aRGBW0:
+                                aRGBW0.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==1:
-                            aRGBW1.append(device)
+                            if device not in aRGBW1:
+                                aRGBW1.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0
                         elif kanalSearch==2:
-                            aRGBW2.append(device)
-                        statusI2C=1
-                        set_pwm_konfig(kanalSearch,device)
-                        if _check_i2c() == False:
-                            print("i2c belegt")
-                            return
-                        statusI2C=0
+                            if device not in aRGBW2:
+                                aRGBW2.append(device)
+                                statusI2C=1
+                                set_pwm_konfig(kanalSearch,device)
+                                if _check_i2c() == False:
+                                    print("i2c belegt")
+                                    return
+                                statusI2C=0                        
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("RGBW")
@@ -1569,11 +1631,14 @@ def modulSuche():
                         log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpANA=tmpANA+hex(device)+";"
                         if kanalSearch==0:
-                            aANA0.append(device)
+                            if device not in aANA0:
+                                aANA0.append(device)
                         elif kanalSearch==1:
-                            aANA1.append(device)
+                            if device not in aANA1:
+                                aANA1.append(device)
                         elif kanalSearch==2:
-                            aANA2.append(device)
+                            if device not in aANA2:
+                                aANA2.append(device)
                         befehl="{MOD;"
                         befehl+="{0};{1};".format(kanalSearch,hex(device))
                         befehl+="{0}".format("ANA")
@@ -1664,7 +1729,7 @@ if __name__ == '__main__':
     plexer = multiplex(bus)
     plexer.channel(mux,kanal)
     time.sleep(0.01)
-    modulSuche()
+    modulSuche(1)
     log(datetime.now())
     log("UDP Port: {0}".format(miniServerPort))
 
