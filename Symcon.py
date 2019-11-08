@@ -35,6 +35,7 @@ aRGBW2= []
 aANA0= []
 aANA1= []
 aANA2= []
+I2CAdrDS2482= 0x18 #Adresse DS2482
 
 #MUX:
 class multiplex:
@@ -50,6 +51,382 @@ class multiplex:
         elif (channel==3): action = 0x07
         else : action = 0x00
         self.bus.write_byte_data(address,0x04,action)  #0x04 is the register for switching channels 
+
+
+
+#DS2482:
+class DS2482:
+    #global owDeviceAddress = [[0,0], [0,0]]#; //These are each 32 bits long.
+
+    def __init__(self):
+        self._bus = smbus.SMBus(bus)
+        self._owDeviceAddress = [0,0]
+        self._owTripletDirection = 1
+        self._owTripletFirstBit = 0
+        self._owTripletSecondBit = 0
+        self._owLastDevice = 0
+        self._owLastDiscrepancy = 0
+
+    def OWSearchBus(self):
+        global I2CAdrDS2482
+        if (self.OWSearch()):
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            befehl="{OWS;"
+            befehl +="{0}".format(device)
+            befehl+="}"
+            sendUDP(befehl)
+            log("Gerät gefunden: " + str(device), "INFO")
+            #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
+            print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+            #ds.DS18B20OWReadTemp()
+
+    def DS2482Reset(self):
+        global I2CAdrDS2482
+        self._bus.write_byte(I2CAdrDS2482, 0xF0) #reset DS2482
+
+
+    def OWStatusRegister(self):
+        global I2CAdrDS2482
+        time.sleep(0.01)
+        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
+        time.sleep(0.01)
+        e=self._bus.read_byte(I2CAdrDS2482)
+        return e
+
+
+    def OWReset(self):
+        global I2CAdrDS2482
+        self._bus.write_byte(I2CAdrDS2482,0xB4) #1Wire Reset
+        loopcount=0
+        data=""    
+        while (True):
+            loopcount+=1
+            data=self.OWStatusRegister() #bus.read_byte(I2CAdrDS2482) #OWStatusRegister()
+            time.sleep(0.01)
+            if (data is None):
+                #Fehler beim Lesen
+                return 0
+            else:
+                if (data & 0x01):
+                    #1Wire belegt
+                    if (loopcount>100):
+                        return 0
+                else:
+                    if (data & 0x04):
+                        #Short detect bit
+                        return 0
+                    if (data & 0x02):
+                        #Presense-Pulse Detect bit
+                        break
+                    else:
+                        #Keine OW geräte gefunden
+                        return 0
+        return 1
+
+
+    def OWWriteByte(self,byte):
+        global I2CAdrDS2482    
+        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
+        loopcount=0
+        while (True):
+            loopcount+=1
+            data=self.OWStatusRegister()#bus.read_byte(I2CAdrDS2482)
+            if(data is None):
+                #Fehler
+                return -1
+            else:
+                if (data & 0x01):
+                    if loopcount>100:
+                        #Fehler I2C Belegt
+                        return -1
+                    time.sleep(0.001)
+                else:
+                    break
+        self._bus.write_byte_data(I2CAdrDS2482,0xA5, byte)
+        loopcount=0
+        while (True):
+            data=self.OWStatusRegister()#bus.read_byte_data(I2CAdrDS2482,1)
+            if(data is None):
+                #Fehler
+                return -1
+            else:
+                if (data & 0x01):
+                    if loopcount>100:
+                        #Fehler I2C Belegt
+                        return -1
+                    time.sleep(0.001)
+                else:
+                    break   
+        return 0
+
+
+    def OWReadByte(self):
+        global I2CAdrDS2482
+        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
+        loopcount=0
+        while (True):
+            loopcount+=1
+            time.sleep(0.01)
+            data=self.OWStatusRegister() #bus.read_byte(I2CAdrDS2482)
+            if(data is None):
+                #Fehler
+                return -1
+            else:
+                if (data & 0x01):
+                    if loopcount>100:
+                        #Fehler I2C Belegt
+                        return -1
+                    time.sleep(0.001)
+                else:
+                    break
+        self._bus.write_byte(I2CAdrDS2482,0x96)
+        #time.sleep(0.05)
+        loopcount=0
+        while (True):
+            loopcount+=1
+            data=self.OWStatusRegister() #bus.read_byte(I2CAdrDS2482)
+            if(data is None):
+                #Fehler
+                return -1
+            else:
+                if (data & 0x01):
+                    if loopcount>100:
+                        #Fehler I2C Belegt
+                        return -1
+                    time.sleep(0.001)
+                else:
+                    break
+        #bus.write_byte(I2CAdrDS2482,0xE1)
+        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xE1)
+        #time.sleep(1.0)
+        data=self._bus.read_byte(I2CAdrDS2482)
+        if(data is None):
+                #Fehler
+                return -1
+        return data
+                
+
+
+
+    
+    def OWTriplet(self):
+        global I2CAdrDS2482
+        if (self._owTripletDirection > 0):
+            self._owTripletDirection = 0xFF
+        time.sleep(0.01)
+        self._bus.write_byte_data(I2CAdrDS2482, 0x78,self._owTripletDirection)
+        loopcount = 0
+        while (True):
+            loopcount+=1
+            time.sleep(0.01)
+            data =self.OWStatusRegister() # bus.read_byte(I2CAdrDS2482)#OWStatusRegister() #bus.read_byte_data(I2CAdrDS2482, 0x96) #Read the status register
+            if (data is None):
+                return -1
+            else:
+                if (data & 0x01):
+                    if (loopcount > 100):
+                        return -1
+                else:
+                    if (data & 0x20):
+                        self._owTripletFirstBit = 1
+                    else:
+                        self._owTripletFirstBit = 0
+                    if (data & 0x40):
+                        self._owTripletSecondBit = 1
+                    else:
+                        self._owTripletSecondBit = 0
+                    if (data & 0x80):
+                        self._owTripletDirection = 1
+                    else:
+                        self._owTripletDirection = 0
+                    return 1
+
+
+    def OWSearch(self):
+        #global owDeviceAddress
+        global I2CAdrDS2482
+        self._owLastDevice=0
+        self._bitNumber=1
+        self._lastZero=0
+        self._owLastDiscrepancy=0
+        self._deviceAddress4ByteIndex=1 #Fill last 4 bytes first, data from onewire comes LSB first.
+        self._deviceAddress4ByteMask=1
+        
+        if (self._owLastDevice):
+            #Letzte adresse:
+            self._owLastDevice=0
+            self._owLastDiscrepancy=0
+            self._owDeviceAddress[0] = 0xFFFFFFFF
+            self._owDeviceAddress[1] = 0xFFFFFFFF
+        else:
+            if not (self.OWReset()):
+                self._owLastDiscrepancy = 0
+                return 0
+        
+            self.OWWriteByte(0xF0)
+            while (self._deviceAddress4ByteIndex > -1):
+                if (self._bitNumber < self._owLastDiscrepancy):
+                    if (self._owDeviceAddress[self._deviceAddress4ByteIndex] & self._deviceAddress4ByteMask):
+                        self._owTripletDirection = 1
+                    else:
+                        self._owTripletDirection = 0
+                elif (self._bitNumber == self._owLastDiscrepancy): #if equal to last pick 1, if not pick 0
+                    self._owTripletDirection = 1
+                else:
+                    self._owTripletDirection = 0
+                
+                if not (self.OWTriplet()):
+                    return 0
+
+                if (self._owTripletFirstBit==0 and self._owTripletSecondBit==0 and self._owTripletDirection==0):
+                    self._lastZero = self._bitNumber
+                if (self._owTripletFirstBit==1 and self._owTripletSecondBit==1):
+                    break
+                if (self._owTripletDirection==1):
+                    self._owDeviceAddress[self._deviceAddress4ByteIndex] = self._owDeviceAddress[self._deviceAddress4ByteIndex] | self._deviceAddress4ByteMask
+                else:
+                    self._owDeviceAddress[self._deviceAddress4ByteIndex] = self._owDeviceAddress[self._deviceAddress4ByteIndex] & (~self._deviceAddress4ByteMask)
+                self._bitNumber+=1 #Counter hochsetzen
+                self._deviceAddress4ByteMask = (self._deviceAddress4ByteMask << 1) & 0xFFFFFFFF #shift the bit mask left
+                if (self._deviceAddress4ByteMask == 0): #if the mask is 0 then go to other address block and reset mask to first bit
+                    self._deviceAddress4ByteIndex=self._deviceAddress4ByteIndex-1
+                    self._deviceAddress4ByteMask = 1
+
+            if (self._bitNumber == 65): #if the search was successful then
+                self._owLastDiscrepancy = self._lastZero
+                if (self._owLastDiscrepancy==0):
+                    self._owLastDevice = 1
+                else:
+                    self._owLastDevice = 0
+                
+                #serialnumber=owDeviceAddress[0][0]<<32 | owDeviceAddress[0][1]
+                #print(hex(serialnumber))
+                
+                if (self.OWCheckCRC()):
+                    print("CRC OK")
+                    return 1
+                else:
+                    print("CRC NICHT OK")
+                    return 1
+        self._owLastDiscrepancy = 0
+        self._owLastDevice = 0
+        return 0
+
+
+    def OWCheckCRC(self):
+        global I2CAdrDS2482
+        crc = 0
+        da32bit= self._owDeviceAddress[1]
+        for j in range(0,4):
+            crc = self.AddCRC(da32bit & 0xFF, crc)
+            da32bit = da32bit >> 8 #Shift right 8 bits
+        da32bit = self._owDeviceAddress[0]
+        for j in range(0,3):
+            crc = self.AddCRC(da32bit & 0xFF, crc)
+            da32bit = da32bit >> 8 #Shift right 8 bits
+        if ((da32bit & 0xFF) == crc): #last byte of address should match CRC of other 7 bytes
+            return 1 #match
+        return 0 #bad CRC
+
+
+    def AddCRC(self,inbyte, crc):
+        for j in range(0,8):
+            mix = (crc ^ inbyte) & 0x01
+            crc = crc >> 1
+            if (mix):
+                crc = crc ^ 0x8C
+            inbyte = inbyte >> 1
+        return crc
+
+
+    def OWSelect(self):
+        self.OWWriteByte(0x55) #Issue the Match ROM command
+        #for i in range(1,-1,-1):
+        da32bit = self._owDeviceAddress[1]
+        for j in range(0,4):
+            self.OWWriteByte(da32bit & 0xFF) #Send lowest byte
+            da32bit = da32bit >> 8 #Shift right 8 bits
+            #print (da32bit & 0xFF)
+        da32bit = self._owDeviceAddress[0]
+        for j2 in range(0,4):
+            self.OWWriteByte(da32bit & 0xFF) #Send lowest byte
+            da32bit = da32bit >> 8 #Shift right 8 bits
+            #print (da32bit & 0xFF)    
+
+    def OWSelectAdress(self,OWAdr):
+        #"28-a601183074cbff" -> a601183074cbff28
+        #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+        x = OWAdr.split("-")
+        tmp2 = "0x" + x[1] + x[0]
+        tmp = int(tmp2, 16)
+        self._owDeviceAddress[1] = tmp & 0xFFFFFFFF
+        self._owDeviceAddress[0] = tmp >> 32
+        #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+        #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
+
+
+    def DS18B20OWReadTemp(self):
+        try:
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x28): #Ist ein DS18B20
+                #print (hex(owDeviceAddress[1]& 0xFF))
+                if (self.OWReset()):
+                    self.OWSelect()
+                    self.OWWriteByte(0x44) # Starte Messung
+                    time.sleep(1) #Warten auf messung
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        #OWWriteByte(0xCC)
+                        self.OWWriteByte(0xBE) #Lese Werte
+                        #time.sleep(1.01)
+                        #ds.DS18B20OWReadTemp()
+
+            data = [0,0,0,0,0]
+            for i in range(0,5):
+                data[i] = self.OWReadByte()
+                #print(data[i])
+
+            raw = (data[1] << 8) | data[0]
+            SignBit = raw & 0x8000  # test most significant bit
+            if (SignBit):
+                raw = (raw ^ 0xffff) + 1 # negative, 2's compliment
+            cfg = data[4] & 0x60
+            if (cfg == 0x60):
+                raw=raw
+                #print("test0x60")
+                #nix tun
+            elif (cfg == 0x40):
+                #raw = raw & 0xFFFE
+                #print("test0x40")
+                raw = raw << 1
+            elif (cfg == 0x20):
+                #raw = raw & 0xFFFC
+                #print("testx020")
+                raw = raw << 2
+            else:
+                #raw = raw & 0xFFF8
+                #print("testrest")
+                raw = raw << 3
+
+            celsius = raw / 16.0
+            if (SignBit):
+                celsius = celsius * (-1)
+            print(celsius)
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            befehl="{OWV;"
+            befehl +="{0};{1};".format(device,str(celsius))
+            befehl+="OK}"            
+            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+        except:
+            celsius=-99
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            befehl="{OWV;"
+            befehl +="{0};{1};".format(device,str(celsius))
+            befehl+="ERROR}"   
+            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+        finally:
+            sendUDP(befehl)
+
+
 
 
 #RTC:
@@ -238,82 +615,6 @@ def _check_i2c():
     return False
 
 
-def oWConfig():
-    try:
-        modulesr = open("/etc/modules","r")
-        moduleStr=modulesr.read()
-        modulesr.close()
-        i2c_dev = moduleStr.find("i2c-dev")
-        ds2482 = moduleStr.find("ds2482")
-        wire = moduleStr.find("wire")
-        modules = open("/etc/modules","a")
-		#######added i2c-dev
-        if (i2c_dev==-1):
-            modules.write ("\ni2c-dev")
-            log("i2c-dev added to modules","INFO")
-        else:
-            log("i2c-dev already exists","INFO")
-		#######added ds2482
-        if (ds2482==-1):
-            modules.write ("\nds2482")
-            log("ds2482 added to modules","INFO")
-        else:
-            log("ds2482 already exists","INFO")
-        #######added wire
-        if (wire==-1):
-            modules.write ("\nwire")
-            log("wire added to modules","INFO")
-        else:
-            log("wire already exists","INFO")
-    except Exception as e: 
-        print("Fehler: "+str(e))
-    
-    print("DS2482 Konfigurieren:")
-    try:
-        os.system("echo '0x18' | sudo tee /sys/class/i2c-adapter/i2c-1/delete_device")
-    except:
-        log("DS2482 Löschen fehlgeschlagen","INFO")
-    
-    try:
-        os.system("echo 'ds2482 0x18' | sudo tee /sys/class/i2c-adapter/i2c-1/new_device")
-    except:
-        log("DS2482 bereits vrohanden ", "INFO")
-    time.sleep(2)
-
-
-def oWSuche():
-    log("1Wire Suche: ", "INFO")
-    owDeviceList= os.listdir("/sys/bus/w1/devices")
-    owDeviceList.remove ("w1_bus_master1")
-    for owDevice in owDeviceList:
-        befehl="{OWS;"
-        befehl +="{0}".format(owDevice)
-        befehl+="}"
-        sendUDP(befehl)
-        log("Gerät gefunden: " + str(owDevice), "INFO")
-
-
-def oWTemp(oWDevice):
-    try:
-        oWTempFile= open("/sys/bus/w1/devices/"+ oWDevice +"/w1_slave","r")
-        oWTempStr=oWTempFile.read()
-        oWTempFile.close()
-        #print(oWTempStr)
-        tmpPos=oWTempStr.find("t=")
-        tmpTemp=(oWTempStr[tmpPos+2:-1])
-        Temp=int(tmpTemp)/1000
-        befehl="{OWV;"
-        befehl +="{0};{1};".format(oWDevice,str(Temp))
-        befehl+="OK}"
-        sendUDP(befehl)
-        log("Device: " + str(oWDevice) + " Temp: " + str(Temp),"INFO")
-    except:
-        Temp=-99
-        log("Fehler 1Wire: {0}".format(str(oWDevice)),"ERROR")
-
-
-
-
 def set_output_konfig(kanal,adresse):
     global statusI2C
     if adresse <0x24 or adresse > 0x27:
@@ -452,7 +753,7 @@ def getUDP():
                 if GeCoSInData=="MOD":
                     modulSuche()
                 if GeCoSInData=="OWS":
-                    oWSuche()
+                    dsOW.OWSearchBus()
                 elif GeCoSInData=="SAI":
                     interrutpKanal(intKanal0)
                     interrutpKanal(intKanal1)
@@ -477,7 +778,8 @@ def getUDP():
                     elif arr[0]=="SAM":
                         read_analog(arr)
                     elif arr[0]=="OWV":
-                        oWTemp(arr[1])
+                        dsOW.OWSelectAdress(arr[1])
+                        dsOW.DS18B20OWReadTemp()
                     elif arr[0]=="SRTC":
                         #RTC Setzen
                         set_rtc(arr)
@@ -1567,7 +1869,7 @@ def modulSuche(delete=0):
         for device in range(128):
             try:
                 plexer.bus.read_byte(device)
-                if device!=mux and device!=oneWire:
+                if device!=mux and device!=I2CAdrDS2482:
                     if device>=0x20 and device <=0x23:
                         log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                         tmpIN=tmpIN+hex(device)+";"
@@ -1752,7 +2054,6 @@ if __name__ == '__main__':
     log("Script gestartet","ERROR")
     bus=1       # 0 for rev1 boards etc.
     mux=0x71
-    oneWire=0x18
     kanal=0
     bankAKonfig=0x00
     bankBKonfig=0x01
@@ -1815,7 +2116,7 @@ if __name__ == '__main__':
     log("UDP Port: {0}".format(miniServerPort))
 
     #OneWire:
-    oWConfig()
+    dsOW = DS2482()
 
     #TCP Socket:
     tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
