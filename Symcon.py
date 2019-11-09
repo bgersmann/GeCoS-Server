@@ -69,16 +69,21 @@ class DS2482:
 
     def OWSearchBus(self):
         global I2CAdrDS2482
-        if (self.OWSearch()):
-            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            befehl="{OWS;"
-            befehl +="{0}".format(device)
-            befehl+="}"
+        try:
+            if (self.OWSearch()):
+                device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+                befehl="{OWS;"
+                befehl +="{0}".format(device)
+                befehl+="}"
+                sendUDP(befehl)
+                log("Gerät gefunden: " + str(device), "INFO")
+                #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
+                print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+        except:
+            befehl="{OWS;Fehler OWS Suche}"
             sendUDP(befehl)
-            log("Gerät gefunden: " + str(device), "INFO")
-            #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
-            print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
-            #ds.DS18B20OWReadTemp()
+            log("Fehler bei OWS Suche", "ERROR")
+
 
     def DS2482Reset(self):
         global I2CAdrDS2482
@@ -356,13 +361,18 @@ class DS2482:
     def OWSelectAdress(self,OWAdr):
         #"28-a601183074cbff" -> a601183074cbff28
         #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
-        x = OWAdr.split("-")
-        tmp2 = "0x" + x[1] + x[0]
-        tmp = int(tmp2, 16)
-        self._owDeviceAddress[1] = tmp & 0xFFFFFFFF
-        self._owDeviceAddress[0] = tmp >> 32
+        try:
+            x = OWAdr.split("-")
+            tmp2 = "0x" + x[1] + x[0]
+            tmp = int(tmp2, 16)
+            self._owDeviceAddress[1] = tmp & 0xFFFFFFFF
+            self._owDeviceAddress[0] = tmp >> 32
         #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
         #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
+            return True
+        except:
+            log("Fehler beim OneWire Adresse einstellen")
+            return False
 
 
     def DS18B20OWReadTemp(self):
@@ -410,11 +420,8 @@ class DS2482:
             celsius = raw / 16.0
             if (SignBit):
                 celsius = celsius * (-1)
-            print(celsius)
+            #print(celsius)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            befehl="{OWV;"
-            befehl +="{0};{1};".format(device,str(celsius))
-            befehl+="OK}"            
             log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
             celsius=-99
@@ -424,7 +431,7 @@ class DS2482:
             befehl+="ERROR}"   
             log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
         finally:
-            sendUDP(befehl)
+            return celsius
 
 
 
@@ -778,8 +785,7 @@ def getUDP():
                     elif arr[0]=="SAM":
                         read_analog(arr)
                     elif arr[0]=="OWV":
-                        dsOW.OWSelectAdress(arr[1])
-                        dsOW.DS18B20OWReadTemp()
+                        thread_OW(arr)
                     elif arr[0]=="SRTC":
                         #RTC Setzen
                         set_rtc(arr)
@@ -805,11 +811,35 @@ def getUDP():
                 sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
                 log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
 
+def OWReadDevice(arr):
+    x = arr[1].split("-")
+    if x[0] == "28":
+        if dsOW.OWSelectAdress(arr[1])==True:
+            temp=dsOW.DS18B20OWReadTemp()
+            befehl="{OWV;"
+            befehl +="{0};{1};".format(arr[1],str(temp))
+            befehl+="OK}"      
+        else:      
+            log("Fehler beim Adresse einstellen","INFO")
+            befehl="{OWV;"
+            befehl +="{0};".format(arr[1])
+            befehl+="Fehlerhafte OW Adresse}"
+    else:
+        log("OneWire Typ nicht unterstützt","INFO")
+        befehl="{OWV;"
+        befehl +="{0};".format(arr[1])
+        befehl+="Typ nicht untersützt}"
+    sendUDP(befehl)
+          
+
 def thread_gecosOut():
     _thread.start_new_thread(getUDP,())
 
 def thread_interrupt(pin):
     _thread.start_new_thread(interrutpKanal,(pin,))
+
+def thread_OW(arr):
+    _thread.start_new_thread(OWReadDevice,(arr,))
 
 def read_output(kanal,adresse):
     global statusI2C
