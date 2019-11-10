@@ -45,6 +45,11 @@ Kanal 0-2<br>
 ## OWS -Antwort <br>
 {OWS;28-01183074cbff}
 
+## OWC - Optionen <br>
+FamilyCode 28:<br>
+Resolution: 31 -> 9Bit, 63-> 10Bit, 95-> 11Bit, 127-> 12Bit<br>
+{OWS;28-01183074cbff;127} -> {OWS;28-01183074cbff;127;OK}<br>
+
 ### Einrichten als Service:<br>
 
 sudo nano gecos.service<br>
