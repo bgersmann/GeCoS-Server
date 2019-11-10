@@ -31,6 +31,7 @@ Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
 "OWS" = One Wire Suche -> {OWS} <br>
 "OWV" = One Wire Values -> {OWV;OWDevice ID}  ( {OWV;28-01183074cbff} -> {OWV;28-01183074cbff;23.568;OK}) <br>
+"OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  ( {OWC;28-01183074cbff;31} -> {OWC;28-01183074cbff;31;OK}) -> Typ abhängig! <br> 
 Kanal 0-2<br>
 
 ### MOD - Antworten<br>

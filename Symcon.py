@@ -18,6 +18,7 @@ statIN2 = [0,0,0,0,0,0,0,0]
 
 #Globale Variablen
 statusI2C = 1
+statusOW=1
 clSocket = ""
 clIP = ""
 aIN0 = []
@@ -374,6 +375,18 @@ class DS2482:
             log("Fehler beim OneWire Adresse einstellen")
             return False
 
+    def DS18B20OWSetConfig(self,res):
+        #try:
+            # 31, 63, 95, 127 9/10/11/12Bit
+        self.OWSelect()
+        self.OWWriteByte(78)
+        self.OWWriteByte(0)
+        self.OWWriteByte(0)
+        self.OWWriteByte(res)
+        return True
+        #except:
+        #    return False
+        
 
     def DS18B20OWReadTemp(self):
         try:
@@ -382,7 +395,7 @@ class DS2482:
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
-                    time.sleep(1) #Warten auf messung
+                    time.sleep(0.750) #Warten auf messung
                     if (self.OWReset()):
                         self.OWSelect()
                         #OWWriteByte(0xCC)
@@ -606,6 +619,22 @@ def configSchreiben(bereich,wert1, wert2):
         config.write(configfile)
         configfile.close
 
+def _check_OW():
+    global statusOW
+    iCnt=0
+    while True:
+        if statusOW==1:
+            return True
+        else:
+            iCnt+=1
+            # if iCnt >= 100:
+            #     log("OW Status: {0}".format(str(statusOW)),"ERROR")
+            if iCnt>= 2000:
+                log("OW Status: {0}".format(str(statusOW)),"ERROR")
+                return False
+            time.sleep(0.001)
+    return False
+
 def _check_i2c():
     global statusI2C
     iCnt=0
@@ -614,9 +643,10 @@ def _check_i2c():
             return True
         else:
             iCnt+=1
-            if iCnt >= 50:
+            if iCnt >= 70:
                 log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
             if iCnt>= 2000:
+                log("I2C Status Abbruch: {0}".format(str(statusI2C)),"ERROR")
                 return False
             time.sleep(0.001)
     return False
@@ -760,7 +790,7 @@ def getUDP():
                 if GeCoSInData=="MOD":
                     modulSuche()
                 if GeCoSInData=="OWS":
-                    dsOW.OWSearchBus()
+                    thread_OW_Search()
                 elif GeCoSInData=="SAI":
                     interrutpKanal(intKanal0)
                     interrutpKanal(intKanal1)
@@ -785,7 +815,9 @@ def getUDP():
                     elif arr[0]=="SAM":
                         read_analog(arr)
                     elif arr[0]=="OWV":
-                        thread_OW(arr)
+                        thread_OW_read(arr)
+                    elif arr[0]=="OWC":
+                        thread_OW_config(arr)
                     elif arr[0]=="SRTC":
                         #RTC Setzen
                         set_rtc(arr)
@@ -812,25 +844,61 @@ def getUDP():
                 log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
 
 def OWReadDevice(arr):
+    global statusOW
     x = arr[1].split("-")
+    befehl="{OWV;"
     if x[0] == "28":
-        if dsOW.OWSelectAdress(arr[1])==True:
-            temp=dsOW.DS18B20OWReadTemp()
-            befehl="{OWV;"
-            befehl +="{0};{1};".format(arr[1],str(temp))
-            befehl+="OK}"      
-        else:      
-            log("Fehler beim Adresse einstellen","INFO")
-            befehl="{OWV;"
-            befehl +="{0};".format(arr[1])
-            befehl+="Fehlerhafte OW Adresse}"
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                temp=dsOW.DS18B20OWReadTemp()
+                status ="{0};{1}".format(str(temp),"OK")
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status = "Fehler bei Adresse einstellen"
+            statusOW=1
+        else:
+            status = "Fehler OW Bus belegt"
     else:
         log("OneWire Typ nicht unterstützt","INFO")
-        befehl="{OWV;"
-        befehl +="{0};".format(arr[1])
-        befehl+="Typ nicht untersützt}"
+        status+="Typ nicht untersützt}"
+    
+    befehl +="{0};{1}}}".format(arr[1],status)
     sendUDP(befehl)
-          
+  
+def OWConfigDevice(arr):
+    global statusOW
+    x = arr[1].split("-")
+    befehl="{OWC;"
+    status=""
+    if x[0] == "28":
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                if dsOW.DS18B20OWSetConfig(int(arr[2])) == True:
+                    status="{0};{1}".format(str(arr[2]),"OK")
+                else:
+                    status="FEHLER}"
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status="Fehlerhafte OW Adresse}"
+            statusOW=1
+        else:
+            status="Fehler OW Bus belegt"
+    else:
+        log("OneWire Typ nicht unterstützt","INFO")
+        status="Typ nicht untersützt}"
+    befehl +="{0};{1}}}".format(arr[1],status)
+    sendUDP(befehl)
+
+def OWSearchDevice():
+    global statusOW
+    if _check_OW():
+        statusOW=0
+        dsOW.OWSearchBus()
+        statusOW=1
+    else:
+        log("OneWire Bus Belegt","INFO")   
 
 def thread_gecosOut():
     _thread.start_new_thread(getUDP,())
@@ -838,8 +906,14 @@ def thread_gecosOut():
 def thread_interrupt(pin):
     _thread.start_new_thread(interrutpKanal,(pin,))
 
-def thread_OW(arr):
+def thread_OW_read(arr):
     _thread.start_new_thread(OWReadDevice,(arr,))
+
+def thread_OW_config(arr):
+    _thread.start_new_thread(OWConfigDevice,(arr,))
+
+def thread_OW_Search():
+    _thread.start_new_thread(OWSearchDevice,())
 
 def read_output(kanal,adresse):
     global statusI2C
