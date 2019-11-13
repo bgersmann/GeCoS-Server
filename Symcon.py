@@ -71,7 +71,8 @@ class DS2482:
     def OWSearchBus(self):
         global I2CAdrDS2482
         try:
-            if (self.OWSearch()):
+            while self.OWSearch()==1:
+            #if (self.OWSearch()):
                 device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
                 befehl="{OWS;"
                 befehl +="{0}".format(device)
@@ -251,10 +252,8 @@ class DS2482:
     def OWSearch(self):
         #global owDeviceAddress
         global I2CAdrDS2482
-        self._owLastDevice=0
         self._bitNumber=1
         self._lastZero=0
-        self._owLastDiscrepancy=0
         self._deviceAddress4ByteIndex=1 #Fill last 4 bytes first, data from onewire comes LSB first.
         self._deviceAddress4ByteMask=1
         
