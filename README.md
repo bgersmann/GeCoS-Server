@@ -51,12 +51,15 @@ Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12
 ```{OWS;28-01183074cbff;127}``` -> ```{OWS;28-01183074cbff;127;OK}```<br>
 
 ### Download und Einrichten:<br>
-
+Download des git Verzeichnisses:<br>
 `git clone https://github.com/bgersmann/GeCoS-Server`<br>
+Kopiere Symcon.py zu /usr/local/bin/<br>
 `sudo mv /home/pi/GeCoS-Server/Symcon.py /usr/local/bin/`<br>
 `sudo rm -r GeCoS-Server`<br>
 
+Erstellen des Services:<br>
 `sudo nano /lib/systemd/system/gecos.service`<br>
+Folgenden Inhalt einfügen: <br>
 ```
 [Unit]
 Description=GeCoS WebService
@@ -70,6 +73,7 @@ Restart=on-abort
 [Install]
 WantedBy=multi-user.target
 ```
+Einrichten und Starten des Services: <br>
 `sudo chmod 644 /lib/systemd/system/gecos.service`<br>
 `chmod +x /usr/local/bin/Symcon.py`<br>
 `sudo systemctl daemon-reload`<br>
