@@ -30,19 +30,25 @@ Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 "RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}  <br>
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
 "OWS" = One Wire Suche -> {OWS} <br>
-"OWV" = One Wire Values -> {OWV;OWDevice ID}  ( {OWV;28-01183074cbff} -> {OWV;28-01183074cbff;23.568;OK}) <br>
+"OWV" = One Wire Values -> {OWV;OWDevice ID}  (```{OWV;28-01183074cbff}``` -> ```{OWV;28-01183074cbff;23.568;OK}```) <br>
+"OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  (```{OWC;28-01183074cbff;31}``` -> ```{OWC;28-01183074cbff;31;OK}```) -> Typ abhängig! <br> 
 Kanal 0-2<br>
 
 ### MOD - Antworten<br>
-{MOD;0;0x24;OUT}    -> 16Out erkannt<br>
-{MOD;0;0x20;IN}     -> 16In erkannt<br>
-{MOD;0;0x50;PWM}    -> PWM erkannt<br>
-{MOD;0;0x58;RGBW}   -> RGBW erkannt<br>
-{MOD;0;0x68;ANA}    -> Analog erkannt<br>
-{MOD;0;0x05;UNB}    -> Unbekanntes i2c device<br>
+```{MOD;0;0x24;OUT}```    -> 16Out erkannt<br>
+```{MOD;0;0x20;IN}```     -> 16In erkannt<br>
+```{MOD;0;0x50;PWM}```    -> PWM erkannt<br>
+```{MOD;0;0x58;RGBW}```   -> RGBW erkannt<br>
+```{MOD;0;0x68;ANA}```    -> Analog erkannt<br>
+```{MOD;0;0x05;UNB}```    -> Unbekanntes i2c device<br>
 
 ## OWS -Antwort <br>
 {OWS;28-01183074cbff}
+
+## OWC - Optionen <br>
+FamilyCode ```28```:<br>
+Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
+```{OWS;28-01183074cbff;127}``` -> ```{OWS;28-01183074cbff;127;OK}```<br>
 
 ### Einrichten als Service:<br>
 
