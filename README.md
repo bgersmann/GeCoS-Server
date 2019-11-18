@@ -52,11 +52,11 @@ Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12
 
 ### Download und Einrichten:<br>
 
-`git clone https://github.com/bgersmann/GeCoS-Server<br>`
-`sudo mv /home/pi/GeCoS-Server/Symcon.py /usr/local/bin/<br>`
-`sudo rm -r GeCoS-Server<br>`
+`git clone https://github.com/bgersmann/GeCoS-Server`<br>
+`sudo mv /home/pi/GeCoS-Server/Symcon.py /usr/local/bin/`<br>
+`sudo rm -r GeCoS-Server`<br>
 
-`sudo nano /lib/systemd/system/gecos.service<br>`
+`sudo nano /lib/systemd/system/gecos.service`<br>
 ```
 [Unit]
 Description=GeCoS WebService
@@ -70,14 +70,14 @@ Restart=on-abort
 [Install]
 WantedBy=multi-user.target
 ```
-`sudo chmod 644 /lib/systemd/system/gecos.service<br>`
-`chmod +x /usr/local/bin/Symcon.py<br>`
-`sudo systemctl daemon-reload<br>`
-`sudo systemctl enable gecos.service<br>`
-`sudo systemctl start gecos.service<br>`
-`sudo systemctl status gecos.service<br>`
-`sudo systemctl restart gecos.service<br>`
-`sudo systemctl stop gecos.service<br>`
+`sudo chmod 644 /lib/systemd/system/gecos.service`<br>
+`chmod +x /usr/local/bin/Symcon.py`<br>
+`sudo systemctl daemon-reload`<br>
+`sudo systemctl enable gecos.service`<br>
+`sudo systemctl start gecos.service`<br>
+`sudo systemctl status gecos.service`<br>
+`sudo systemctl restart gecos.service`<br>
+`sudo systemctl stop gecos.service`<br>
 
 
 
