@@ -50,9 +50,13 @@ FamilyCode ```28```:<br>
 Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
 ```{OWS;28-01183074cbff;127}``` -> ```{OWS;28-01183074cbff;127;OK}```<br>
 
-### Einrichten als Service:<br>
+### Download und Einrichten:<br>
 
-sudo nano gecos.service<br>
+git clone https://github.com/bgersmann/GeCoS-Server<br>
+sudo mv /home/pi/GeCoS-Server/Symcon.py /usr/local/bin/<br>
+sudo rm -r GeCoS-Server<br>
+
+sudo nano /lib/systemd/system/gecos.service<br>
 ```
 [Unit]
 Description=GeCoS WebService
