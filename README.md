@@ -48,7 +48,7 @@ Kanal 0-2<br>
 ## OWC - Optionen <br>
 FamilyCode ```28```:<br>
 Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
-```{OWS;28-01183074cbff;127}``` -> ```{OWS;28-01183074cbff;127;OK}```<br>
+```{OWC;28-01183074cbff;127}``` -> ```{OWC;28-01183074cbff;127;OK}```<br>
 
 ### Download und Einrichten:<br>
 Download des git Verzeichnisses:<br>
