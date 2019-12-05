@@ -860,7 +860,7 @@ def OWReadDevice(arr):
             status = "Fehler OW Bus belegt"
     else:
         log("OneWire Typ nicht unterstützt","INFO")
-        status+="Typ nicht untersützt}"
+        status="Typ nicht untersützt}"
     
     befehl +="{0};{1}}}".format(arr[1],status)
     sendUDP(befehl)
