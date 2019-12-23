@@ -30,8 +30,8 @@ Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 "RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}  <br>
 "SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
 "OWS" = One Wire Suche -> {OWS} <br>
-"OWV" = One Wire Values -> {OWV;OWDevice ID}  (```{OWV;28-01183074cbff}``` -> ```{OWV;28-01183074cbff;23.568;OK}```) <br>
-"OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  (```{OWC;28-01183074cbff;31}``` -> ```{OWC;28-01183074cbff;31;OK}```) -> Typ abhängig! <br> 
+"OWV" = One Wire Values -> {OWV;OWDevice ID}  (```{OWV;28-610119138fdf1b}``` -> ```{OWV;28-610119138fdf1b;23.568;OK}```) <br>
+"OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  (```{OWC;28-610119138fdf1b;31}``` -> ```{OWC;28-610119138fdf1b;31;OK}```) -> Typ abhängig! <br> 
 Kanal 0-2<br>
 
 ### MOD - Antworten<br>
@@ -43,12 +43,17 @@ Kanal 0-2<br>
 ```{MOD;0;0x05;UNB}```    -> Unbekanntes i2c device<br>
 
 ## OWS -Antwort <br>
-{OWS;28-01183074cbff}
+```{OWS;28-610119138fdf1b}}``` -> DS18B20<br>
+```{OWS;10-460008037049d3}```   -> DS18S20<br>
+```{OWS;3a-1d000000455f51}``` -> DS2413<br>
+```{OWS;3b-910cfc09590677}``` -> MAX31850<br>
+
 
 ## OWC - Optionen <br>
 FamilyCode ```28```:<br>
 Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
-```{OWC;28-01183074cbff;127}``` -> ```{OWC;28-01183074cbff;127;OK}```<br>
+```{OWC;28-610119138fdf1b;127}``` -> ```{OWC;28-610119138fdf1b;127;OK}```<br>
+
 
 ### Download und Einrichten:<br>
 Download des git Verzeichnisses:<br>

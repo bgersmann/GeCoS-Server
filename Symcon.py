@@ -374,17 +374,30 @@ class DS2482:
             log("Fehler beim OneWire Adresse einstellen")
             return False
 
-    def DS18B20OWSetConfig(self,res):
-        #try:
-            # 31, 63, 95, 127 9/10/11/12Bit
-        self.OWSelect()
-        self.OWWriteByte(78)
-        self.OWWriteByte(0)
-        self.OWWriteByte(0)
-        self.OWWriteByte(res)
+    def DS2413OWSetConfig(self,data):
+        try:
+            self.OWSelect()
+            self.OWWriteByte(0x5a)
+            self.OWWriteByte(data)
+            data = ~data&0xFF
+            self.OWWriteByte(data)
+            return True
+        except:
+            return False
         return True
-        #except:
-        #    return False
+
+    def DS18B20OWSetConfig(self,res):
+        try:
+            # 31, 63, 95, 127 9/10/11/12Bit
+            self.OWSelect()
+            self.OWWriteByte(78)
+            self.OWWriteByte(0)
+            self.OWWriteByte(0)
+            self.OWWriteByte(res)
+            return True
+        except:
+            return False
+        return True
         
 
     def DS18B20OWReadTemp(self):
@@ -431,6 +444,49 @@ class DS2482:
             log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
         finally:
             return celsius
+
+    def DS2413GetState(self):
+        try:
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x3a): #Ist ein DS18B20
+                if (self.OWReset()):
+                    self.OWSelect()
+                    self.OWWriteByte(0xF5) #Starte Messung
+                    result = self.OWReadByte()
+                    print(result)
+        except:
+            result=-85
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+        finally:
+            return result
+
+
+    def MAX31850OWReadTemp(self):
+        try:
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x3B): #Ist ein DS18B20
+                if (self.OWReset()):
+                    self.OWSelect()
+                    self.OWWriteByte(0x44) # Starte Messung
+                    time.sleep(0.750) #Warten auf messung
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        self.OWWriteByte(0xBE) #Lese Werte
+
+            data = [0,0,0,0,0]
+            for i in range(0,5):
+                data[i] = self.OWReadByte()
+
+            raw = (data[1] << 8) | data[0] & 0xFC
+            raw = raw * 0.0625
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+        except:
+            celsius=-85
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+        finally:
+            return celsius
+
 
 
     def DS18S20OWReadTemp(self):
@@ -647,7 +703,7 @@ def _check_OW():
             iCnt+=1
             # if iCnt >= 100:
             #     log("OW Status: {0}".format(str(statusOW)),"ERROR")
-            if iCnt>= 3000:
+            if iCnt>= 10000:
                 log("OW Status: {0}".format(str(statusOW)),"ERROR")
                 return False
             time.sleep(0.001)
@@ -889,6 +945,30 @@ def OWReadDevice(arr):
             statusOW=1
         else:
             status = "-85;Fehler OW Bus belegt"
+    elif x[0] == "3a":
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                result=dsOW.DS2413GetState()
+                status ="{0};{1}".format(str(result),"OK")
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status = "-85;Fehler bei Adresse einstellen"
+            statusOW=1
+        else:
+            status = "-85;Fehler OW Bus belegt"
+    elif x[0] == "3b":
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                result=dsOW.MAX31850OWReadTemp()
+                status ="{0};{1}".format(str(result),"OK")
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status = "-85;Fehler bei Adresse einstellen"
+            statusOW=1
+        else:
+            status = "-85;Fehler OW Bus belegt"            
     else:
         log("OneWire Typ nicht unterstützt","INFO")
         status="-85;Typ nicht untersützt}"
@@ -915,6 +995,21 @@ def OWConfigDevice(arr):
             statusOW=1
         else:
             status="Fehler OW Bus belegt"
+    if x[0] == "3a":
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                if dsOW.DS2413OWSetConfig(int(arr[2])) == True:
+                    status="{0};{1}".format(str(arr[2]),"OK")
+                else:
+                    status="FEHLER}"
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status="Fehlerhafte OW Adresse}"
+            statusOW=1
+        else:
+            status="Fehler OW Bus belegt"
+            
     else:
         log("OneWire Typ nicht unterstützt","INFO")
         status="Typ nicht untersützt}"
