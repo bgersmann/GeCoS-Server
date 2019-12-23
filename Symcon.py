@@ -428,9 +428,6 @@ class DS2482:
         except:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            befehl="{OWV;"
-            befehl+="{0};{1};".format(device,str(celsius))
-            befehl+="ERROR}"   
             log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
         finally:
             return celsius
@@ -464,9 +461,6 @@ class DS2482:
         except:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            befehl="{OWV;"
-            befehl+="{0};{1};".format(device,str(celsius))
-            befehl+="ERROR}"   
             log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
         finally:
             return celsius
