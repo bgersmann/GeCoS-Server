@@ -53,6 +53,7 @@ Kanal 0-2<br>
 FamilyCode ```28```:<br>
 Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
 ```{OWC;28-610119138fdf1b;127}``` -> ```{OWC;28-610119138fdf1b;127;OK}```<br>
+<br>
 FamilyCode ```3a```:<br>
 Value: ```0``` -> IOA+IOB = LOW, ```1```-> IOA = HIGH;IOB = LOW, ```2```-> IOA = LOW; IOB = High, ```3```-> IOA+IOB = High<br>
 ```{OWC;28-610119138fdf1b;3}``` -> ```{OWC;28-610119138fdf1b;3;OK}```<br>
