@@ -390,22 +390,17 @@ class DS2482:
     def DS18B20OWReadTemp(self):
         try:
             if ((self._owDeviceAddress[1]& 0xFF) == 0x28): #Ist ein DS18B20
-                #print (hex(owDeviceAddress[1]& 0xFF))
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
                     time.sleep(0.750) #Warten auf messung
                     if (self.OWReset()):
                         self.OWSelect()
-                        #OWWriteByte(0xCC)
                         self.OWWriteByte(0xBE) #Lese Werte
-                        #time.sleep(1.01)
-                        #ds.DS18B20OWReadTemp()
 
             data = [0,0,0,0,0]
             for i in range(0,5):
                 data[i] = self.OWReadByte()
-                #print(data[i])
 
             raw = (data[1] << 8) | data[0]
             SignBit = raw & 0x8000  # test most significant bit
@@ -414,37 +409,67 @@ class DS2482:
             cfg = data[4] & 0x60
             if (cfg == 0x60):
                 raw=raw
-                #print("test0x60")
                 #nix tun
             elif (cfg == 0x40):
                 #raw = raw & 0xFFFE
-                #print("test0x40")
                 raw = raw << 1
             elif (cfg == 0x20):
                 #raw = raw & 0xFFFC
-                #print("testx020")
                 raw = raw << 2
             else:
                 #raw = raw & 0xFFF8
-                #print("testrest")
                 raw = raw << 3
 
             celsius = raw / 16.0
             if (SignBit):
                 celsius = celsius * (-1)
-            #print(celsius)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
-            celsius=-99
+            celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             befehl="{OWV;"
-            befehl +="{0};{1};".format(device,str(celsius))
+            befehl+="{0};{1};".format(device,str(celsius))
             befehl+="ERROR}"   
             log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
         finally:
             return celsius
 
+
+    def DS18S20OWReadTemp(self):
+        try:
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x10): #Ist ein DS18B20
+                if (self.OWReset()):
+                    self.OWSelect()
+                    self.OWWriteByte(0x44) # Starte Messung
+                    time.sleep(0.750) #Warten auf messung
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        self.OWWriteByte(0xBE) #Lese Werte
+
+            data = [0,0]
+            for i in range(0,2):
+                data[i] = self.OWReadByte()
+
+            raw = (data[1] << 8) | data[0]
+            SignBit = raw & 0x8000  # test most significant bit
+            if (SignBit):
+                raw = (raw ^ 0xffff) + 1 # negative, 2's compliment
+            
+            celsius = raw / 2.0
+            if (SignBit):
+                celsius = celsius * (-1)
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+        except:
+            celsius=-85
+            device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+            befehl="{OWV;"
+            befehl+="{0};{1};".format(device,str(celsius))
+            befehl+="ERROR}"   
+            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+        finally:
+            return celsius
 
 
 
@@ -628,7 +653,7 @@ def _check_OW():
             iCnt+=1
             # if iCnt >= 100:
             #     log("OW Status: {0}".format(str(statusOW)),"ERROR")
-            if iCnt>= 2000:
+            if iCnt>= 3000:
                 log("OW Status: {0}".format(str(statusOW)),"ERROR")
                 return False
             time.sleep(0.001)
@@ -854,13 +879,25 @@ def OWReadDevice(arr):
                 status ="{0};{1}".format(str(temp),"OK")
             else:      
                 log("Fehler beim Adresse einstellen","INFO")
-                status = "Fehler bei Adresse einstellen"
+                status = "-85;Fehler bei Adresse einstellen"
             statusOW=1
         else:
-            status = "Fehler OW Bus belegt"
+            status = "-85;Fehler OW Bus belegt"
+    elif x[0] == "10":
+        if _check_OW():
+            statusOW=0
+            if dsOW.OWSelectAdress(arr[1])==True:
+                temp=dsOW.DS18S20OWReadTemp()
+                status ="{0};{1}".format(str(temp),"OK")
+            else:      
+                log("Fehler beim Adresse einstellen","INFO")
+                status = "-85;Fehler bei Adresse einstellen"
+            statusOW=1
+        else:
+            status = "-85;Fehler OW Bus belegt"
     else:
         log("OneWire Typ nicht unterstützt","INFO")
-        status+="Typ nicht untersützt}"
+        status="-85;Typ nicht untersützt}"
     
     befehl +="{0};{1}}}".format(arr[1],status)
     sendUDP(befehl)
@@ -1020,7 +1057,7 @@ def set_output(arr):
         sendUDP(sArr)   
         
 def log(message, level="INFO"):
-    timestamp= time.strftime("%d.%m.%Y %H:%M:%S", time.localtime(time.time()))
+    timestamp= datetime.now().strftime("%H:%M:%S.%f") #time.strftime("%d.%m.%Y %H:%M:%S.%f", time.localtime(time.time()))
     print("{0} {1}: {2}".format(timestamp, level, message))
     if level=="ERROR":
         file = open("/home/pi/logfile.log","a")
