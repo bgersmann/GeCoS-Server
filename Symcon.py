@@ -407,18 +407,10 @@ class DS2482:
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
-                    statusOW=1
                     time.sleep(0.750) #Warten auf messung
-                    if _check_OW:
-                        statusOW=0
-                        if (self.OWReset()):
-                            self.OWSelect()
-                            self.OWWriteByte(0xBE) #Lese Werte
-                    else:
-                        celsius = -85
-                        device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-                        log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
-                        return celsius
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        self.OWWriteByte(0xBE) #Lese Werte
 
             data = [0,0,0,0,0]
             for i in range(0,5):
@@ -479,16 +471,9 @@ class DS2482:
                     self.OWWriteByte(0x44) # Starte Messung
                     statusOW=1
                     time.sleep(0.750) #Warten auf messung
-                    if _check_OW:
-                        statusOW=0
-                        if (self.OWReset()):
-                            self.OWSelect()
-                            self.OWWriteByte(0xBE) #Lese Werte
-                    else:
-                        celsius = -85
-                        device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-                        log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
-                        return celsius
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        self.OWWriteByte(0xBE) #Lese Werte
 
             data = [0,0,0,0,0]
             for i in range(0,5):
@@ -516,16 +501,10 @@ class DS2482:
                     self.OWWriteByte(0x44) # Starte Messung
                     statusOW=1
                     time.sleep(0.750) #Warten auf messung
-                    if _check_OW:
-                        statusOW=0
-                        if (self.OWReset()):
-                            self.OWSelect()
-                            self.OWWriteByte(0xBE) #Lese Werte
-                    else:
-                        celsius = -85
-                        device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-                        log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
-                        return celsius
+                    if (self.OWReset()):
+                        self.OWSelect()
+                        self.OWWriteByte(0xBE) #Lese Werte
+
 
             data = [0,0]
             for i in range(0,2):
