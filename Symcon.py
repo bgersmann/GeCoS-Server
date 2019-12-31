@@ -360,15 +360,12 @@ class DS2482:
 
     def OWSelectAdress(self,OWAdr):
         #"28-a601183074cbff" -> a601183074cbff28
-        #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
         try:
             x = OWAdr.split("-")
             tmp2 = "0x" + x[1] + x[0]
             tmp = int(tmp2, 16)
             self._owDeviceAddress[1] = tmp & 0xFFFFFFFF
             self._owDeviceAddress[0] = tmp >> 32
-        #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
-        #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
             return True
         except:
             log("Fehler beim OneWire Adresse einstellen")
@@ -401,7 +398,6 @@ class DS2482:
         
 
     def DS18B20OWReadTemp(self):
-        global statusOW
         try:
             if ((self._owDeviceAddress[1]& 0xFF) == 0x28): #Ist ein DS18B20
                 if (self.OWReset()):
@@ -463,24 +459,32 @@ class DS2482:
 
 
     def MAX31850OWReadTemp(self):
-        global statusOW
         try:
-            if ((self._owDeviceAddress[1]& 0xFF) == 0x3B): #Ist ein DS18B20
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x3B): #Ist ein MAX31850
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
-                    statusOW=1
-                    time.sleep(0.750) #Warten auf messung
+                    time.sleep(0.100) #Warten auf messung
                     if (self.OWReset()):
                         self.OWSelect()
                         self.OWWriteByte(0xBE) #Lese Werte
 
-            data = [0,0,0,0,0]
-            for i in range(0,5):
+            data = [0,0,0,0]
+            for i in range(0,4):
                 data[i] = self.OWReadByte()
 
             raw = (data[1] << 8) | data[0] & 0xFC
-            raw = raw * 0.0625
+            SignBit = raw & 0x8000  # test most significant bit
+            if (SignBit):
+                raw = (raw ^ 0xffff) + 1 # negative, 2's compliment
+
+            if (data[0]&0X01==1): # Auf fehler prüfen
+                celsius=-85
+                device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
+                log("Device: " + str(device) + " Temp: " + str(celsius),"ERROR")
+                return celsius
+
+            celsius= raw * 0.0625
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
@@ -493,13 +497,11 @@ class DS2482:
 
 
     def DS18S20OWReadTemp(self):
-        global statusOW
         try:
             if ((self._owDeviceAddress[1]& 0xFF) == 0x10): #Ist ein DS18B20
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
-                    statusOW=1
                     time.sleep(0.750) #Warten auf messung
                     if (self.OWReset()):
                         self.OWSelect()
@@ -707,8 +709,6 @@ def _check_OW():
             return True
         else:
             iCnt+=1
-            # if iCnt >= 100:
-            #     log("OW Status: {0}".format(str(statusOW)),"ERROR")
             if iCnt>= 10000:
                 log("OW Status: {0}".format(str(statusOW)),"ERROR")
                 return False
@@ -1001,7 +1001,7 @@ def OWConfigDevice(arr):
             statusOW=1
         else:
             status="Fehler OW Bus belegt"
-    if x[0] == "3a":
+    elif x[0] == "3a":
         if _check_OW():
             statusOW=0
             if dsOW.OWSelectAdress(arr[1])==True:
@@ -1014,8 +1014,7 @@ def OWConfigDevice(arr):
                 status="Fehlerhafte OW Adresse}"
             statusOW=1
         else:
-            status="Fehler OW Bus belegt"
-            
+            status="Fehler OW Bus belegt"            
     else:
         log("OneWire Typ nicht unterstützt","INFO")
         status="Typ nicht untersützt}"
