@@ -83,7 +83,7 @@ WantedBy=multi-user.target
 ```
 Einrichten und Starten des Services: <br>
 `sudo chmod 644 /lib/systemd/system/gecos.service`<br>
-`chmod +x /usr/local/bin/GeCoS-Server.py`<br>
+`sudo chmod +x /usr/local/bin/GeCoS-Server.py`<br>
 `sudo systemctl daemon-reload`<br>
 `sudo systemctl enable gecos.service`<br>
 `sudo systemctl start gecos.service`<br>
