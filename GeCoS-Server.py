@@ -723,7 +723,7 @@ def _check_i2c():
             return True
         else:
             iCnt+=1
-            if iCnt >= 70:
+            if iCnt >= 150:
                 log("I2C Status: {0}".format(str(statusI2C)),"ERROR")
             if iCnt>= 2000:
                 log("I2C Status Abbruch: {0}".format(str(statusI2C)),"ERROR")
