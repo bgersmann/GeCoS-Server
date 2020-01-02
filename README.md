@@ -61,8 +61,8 @@ Value: ```0``` -> IOA+IOB = LOW, ```1```-> IOA = HIGH;IOB = LOW, ```2```-> IOA =
 ### Download und Einrichten:<br>
 Download des git Verzeichnisses:<br>
 `git clone https://github.com/bgersmann/GeCoS-Server`<br>
-Kopiere Symcon.py zu /usr/local/bin/<br>
-`sudo mv /home/pi/GeCoS-Server/Symcon.py /usr/local/bin/`<br>
+Kopiere GeCoS-Server.py zu /usr/local/bin/<br>
+`sudo mv /home/pi/GeCoS-Server/GeCoS-Server.py /usr/local/bin/`<br>
 `sudo rm -r GeCoS-Server`<br>
 
 Erstellen des Services:<br>
@@ -75,7 +75,7 @@ After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/Symcon.py
+ExecStart=/usr/bin/python3 /usr/local/bin/GeCoS-Server.py
 Restart=on-abort
 
 [Install]
@@ -83,7 +83,7 @@ WantedBy=multi-user.target
 ```
 Einrichten und Starten des Services: <br>
 `sudo chmod 644 /lib/systemd/system/gecos.service`<br>
-`chmod +x /usr/local/bin/Symcon.py`<br>
+`chmod +x /usr/local/bin/GeCoS-Server.py`<br>
 `sudo systemctl daemon-reload`<br>
 `sudo systemctl enable gecos.service`<br>
 `sudo systemctl start gecos.service`<br>
