@@ -66,7 +66,7 @@ Kopiere GeCoS-Server.py zu /usr/local/bin/<br>
 `sudo rm -r GeCoS-Server`<br>
 
 Alternativ:<br>
-`sudo wget -O /usr/local/bin/GeCoS-Server.py https://github.com/bgersmann/GeCoS-Server/blob/master/GeCoS-Server.py`<br>
+`sudo wget -O /usr/local/bin/GeCoS-Server.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/GeCoS-Server.py`<br>
 
 
 Erstellen des Services:<br>
