@@ -1,0 +1,11 @@
+[Unit]
+Description=GeCoS WebService
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/GeCoS-Server.py
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
