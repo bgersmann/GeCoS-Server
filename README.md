@@ -93,11 +93,11 @@ Einrichten und Starten des Services: <br>
 
 
 
-Alternativ:<br>
+### Alternativ:<br>
 `sudo wget -O /usr/local/bin/GeCoS-Server.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/GeCoS-Server.py`<br>
 `sudo wget -O /lib/systemd/system/gecos.service https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/gecos.service`<br>
 `sudo chmod 644 /lib/systemd/system/gecos.service`<br>
 `sudo chmod +x /usr/local/bin/GeCoS-Server.py`<br>
-
-
-
+`sudo systemctl daemon-reload`<br>
+`sudo systemctl enable gecos.service`<br>
+`sudo systemctl start gecos.service`<br>
