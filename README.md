@@ -1,6 +1,5 @@
 # GeCoS-Server
-Python GeCoS Server Script. Ansprechbar per WebSocket<br>
-
+Python GeCoS Server Script. Ansprechbar per UDP-WebSocket<br>
 
 ### Befehlsaufbau:<br>
 Befehl in geschweiften klammern verpackt: ```{}``` <br>
@@ -41,13 +40,14 @@ Kanal 0-2<br>
 ```{MOD;0;0x58;RGBW}```   -> RGBW erkannt<br>
 ```{MOD;0;0x68;ANA}```    -> Analog erkannt<br>
 ```{MOD;0;0x05;UNB}```    -> Unbekanntes i2c device<br>
+```{MOD;0;0;END}```    -> Suche beendet<br>
 
 ### OWS -Antwort <br>
 ```{OWS;28-610119138fdf1b}}``` -> DS18B20<br>
 ```{OWS;10-460008037049d3}```   -> DS18S20<br>
 ```{OWS;3a-1d000000455f51}``` -> DS2413<br>
 ```{OWS;3b-910cfc09590677}``` -> MAX31850<br>
-
+```{OWS;0;0;END}```    -> Suche beendet<br>
 
 ### OWC - Optionen <br>
 FamilyCode ```28```:<br>
