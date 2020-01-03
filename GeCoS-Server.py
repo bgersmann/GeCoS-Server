@@ -155,9 +155,7 @@ class DS2482:
 
     def OWStatusRegister(self):
         global I2CAdrDS2482
-        time.sleep(0.01)
         self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
-        time.sleep(0.01)
         e=self._bus.read_byte(I2CAdrDS2482)
         return e
 
@@ -170,7 +168,6 @@ class DS2482:
         while (True):
             loopcount+=1
             data=self.OWStatusRegister() 
-            time.sleep(0.01)
             if (data is None):
                 #Fehler beim Lesen
                 return 0
@@ -234,7 +231,6 @@ class DS2482:
         loopcount=0
         while (True):
             loopcount+=1
-            time.sleep(0.01)
             data=self.OWStatusRegister()
             if(data is None):
                 #Fehler
@@ -248,7 +244,6 @@ class DS2482:
                 else:
                     break
         self._bus.write_byte(I2CAdrDS2482,0x96)
-        #time.sleep(0.05)
         loopcount=0
         while (True):
             loopcount+=1
@@ -264,9 +259,7 @@ class DS2482:
                     time.sleep(0.001)
                 else:
                     break
-        #bus.write_byte(I2CAdrDS2482,0xE1)
         self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xE1)
-        #time.sleep(1.0)
         data=self._bus.read_byte(I2CAdrDS2482)
         if(data is None):
                 #Fehler
@@ -281,12 +274,10 @@ class DS2482:
         global I2CAdrDS2482
         if (self._owTripletDirection > 0):
             self._owTripletDirection = 0xFF
-        time.sleep(0.01)
         self._bus.write_byte_data(I2CAdrDS2482, 0x78,self._owTripletDirection)
         loopcount = 0
         while (True):
             loopcount+=1
-            time.sleep(0.01)
             data =self.OWStatusRegister()
             if (data is None):
                 return -1
