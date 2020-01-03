@@ -65,10 +65,6 @@ Kopiere GeCoS-Server.py zu /usr/local/bin/<br>
 `sudo mv /home/pi/GeCoS-Server/GeCoS-Server.py /usr/local/bin/`<br>
 `sudo rm -r GeCoS-Server`<br>
 
-Alternativ:<br>
-`sudo wget -O /usr/local/bin/GeCoS-Server.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/GeCoS-Server.py`<br>
-
-
 Erstellen des Services:<br>
 `sudo nano /lib/systemd/system/gecos.service`<br>
 Folgenden Inhalt einfügen: <br>
@@ -94,6 +90,14 @@ Einrichten und Starten des Services: <br>
 `sudo systemctl status gecos.service`<br>
 `sudo systemctl restart gecos.service`<br>
 `sudo systemctl stop gecos.service`<br>
+
+
+
+Alternativ:<br>
+`sudo wget -O /usr/local/bin/GeCoS-Server.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/GeCoS-Server.py`<br>
+`sudo wget -O /lib/systemd/system/gecos.service https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/gecos.service`<br>
+`sudo chmod 644 /lib/systemd/system/gecos.service`<br>
+`sudo chmod +x /usr/local/bin/GeCoS-Server.py`<br>
 
 
 
