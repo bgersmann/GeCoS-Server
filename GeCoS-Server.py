@@ -142,6 +142,8 @@ class DS2482:
                 log("Gerät gefunden: " + str(device), "INFO")
                 #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
                 print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+            befehl="{OWS;END}"
+            sendUDP(befehl)
         except:
             befehl="{OWS;Fehler OWS Suche}"
             sendUDP(befehl)
@@ -2135,12 +2137,14 @@ def modulSuche(delete=0):
                         sendUDP(befehl)
             except:
                 pass
+        befehl="{MOD;0;0;END}"
+        sendUDP(befehl)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16IN',tmpIN)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16OUT',tmpOut)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',tmpUnb)                
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16PWM',tmpPWM)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOSANA4',tmpANA)  
-        configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16RGBW',tmpRGBW)  
+        configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16RGBW',tmpRGBW)
         
 def bit_from_string(string, index):
     i=int(string)
