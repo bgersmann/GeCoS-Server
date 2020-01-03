@@ -87,7 +87,6 @@ class multiplex:
                 self.statusI2C=1
             except:
                 wert="error"
-                print("fehler")
                 self.statusI2C=1
         else:
             wert="error"
@@ -140,12 +139,11 @@ class DS2482:
                 befehl+="}"
                 sendUDP(befehl)
                 log("Gerät gefunden: " + str(device), "INFO")
-                #print (hex(self._owDeviceAddress[0]) + hex(self._owDeviceAddress[1]))
-                print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
+                #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
             befehl="{OWS;END}"
             sendUDP(befehl)
         except:
-            befehl="{OWS;Fehler OWS Suche}"
+            befehl="{OWS;Fehler}"
             sendUDP(befehl)
             log("Fehler bei OWS Suche", "ERROR")
 
@@ -368,13 +366,11 @@ class DS2482:
                     self._owLastDevice = 0
                 
                 #serialnumber=owDeviceAddress[0][0]<<32 | owDeviceAddress[0][1]
-                #print(hex(serialnumber))
-                
                 if (self.OWCheckCRC()):
-                    print("CRC OK")
+                    #print("CRC OK")
                     return 1
                 else:
-                    print("CRC NICHT OK")
+                    #print("CRC NICHT OK")
                     return 1
         self._owLastDiscrepancy = 0
         self._owLastDevice = 0
@@ -414,12 +410,10 @@ class DS2482:
         for j in range(0,4):
             self.OWWriteByte(da32bit & 0xFF) #Send lowest byte
             da32bit = da32bit >> 8 #Shift right 8 bits
-            #print (da32bit & 0xFF)
         da32bit = self._owDeviceAddress[0]
         for j2 in range(0,4):
             self.OWWriteByte(da32bit & 0xFF) #Send lowest byte
             da32bit = da32bit >> 8 #Shift right 8 bits
-            #print (da32bit & 0xFF)    
 
     def OWSelectAdress(self,OWAdr):
         #"28-a601183074cbff" -> a601183074cbff28
@@ -497,7 +491,7 @@ class DS2482:
             if (SignBit):
                 celsius = celsius * (-1)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+            #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
@@ -512,7 +506,6 @@ class DS2482:
                     self.OWSelect()
                     self.OWWriteByte(0xF5) #Starte Messung
                     result = self.OWReadByte()
-                    print(result)
         except:
             result=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
@@ -549,7 +542,7 @@ class DS2482:
 
             celsius= raw * 0.0625
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+            #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
@@ -584,7 +577,7 @@ class DS2482:
             if (SignBit):
                 celsius = celsius * (-1)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
+            #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
@@ -860,7 +853,11 @@ def sendUDP(data):
     global clSocket
     global clIP
     try:
-        res=clSocket.send(data.encode())
+        if hasattr(clSocket, 'send'):
+            res=clSocket.send(data.encode())
+        else:
+            log("UDP-Nicht verbunden: {0}".format(data),"ERROR")
+            return None            
     except IOError as err:
         log("UDP-Fehler:{0} ; {1}".format(str(err),data),"ERROR")
     #Daten pruefen:
@@ -897,8 +894,6 @@ def getUDP():
         if len(GeCoSInData)>0:
             if GeCoSInData[0]=="{":
                 GeCoSInData=GeCoSInData.replace("{","")
-                #GeCoSInData=GeCoSInData.replace("}","")
-                #print(GeCoSInData)
                 if GeCoSInData=="MOD":
                     modulSuche()
                 if GeCoSInData=="OWS":
@@ -1425,7 +1420,6 @@ def read_analog(arr):
             wert=wert*0.000076921875
             if signBit:
                 wert=wert-2048
-        #print("Wert:",wert)
         sStatus="OK"
         if len(sStatus) < 1:
             sStatus="Unkown Error"
@@ -1516,7 +1510,6 @@ def read_rgbw(kanal, adresse):
     b=0
     w=0
     i3=0
-    print("test")
     for i in range(16): #16
         startAdr=int(i*4+6)
         #LowByte
@@ -1913,7 +1906,7 @@ def read_input(kanal,adresse, manual=0):
         wertA=plexer.readByteData(kanal,adresse,gpioA)
         wertB=plexer.readByteData(kanal,adresse,gpioB)
         if wertAltA!=wertA or wertAltB!=wertB or manual==1:
-            #print("Unterschied, Senden!")
+            #Unterschied, Senden!
             befehl="{SAI;"
             befehl+="{0};{1};".format(kanal,hex(adresse))
             iIn = [wertB, wertA]
@@ -2137,14 +2130,14 @@ def modulSuche(delete=0):
                         sendUDP(befehl)
             except:
                 pass
-        befehl="{MOD;0;0;END}"
-        sendUDP(befehl)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16IN',tmpIN)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16OUT',tmpOut)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',tmpUnb)                
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16PWM',tmpPWM)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOSANA4',tmpANA)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16RGBW',tmpRGBW)
+    befehl="{MOD;0;0;END}"
+    sendUDP(befehl)
         
 def bit_from_string(string, index):
     i=int(string)
@@ -2211,20 +2204,20 @@ if __name__ == '__main__':
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
     plexer = multiplex(bus)
     plexer.channel(mux,kanal)
-    time.sleep(0.01)
-    modulSuche(1)
-
     log(datetime.now())
-    log("UDP Port: {0}".format(miniServerPort))
-
-    #OneWire:
-    dsOW = DS2482()
-
     #TCP Socket:
+    log("UDP Port: {0}".format(miniServerPort))
     tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
     tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
     tcpSocket.bind(("0.0.0.0",miniServerPort))
     tcpSocket.listen(5)
+    
+    #Modulsuche:
+    modulSuche(1)
+    
+    #OneWire:
+    dsOW = DS2482()
+
     thread_gecosOut()
 
     #RTC Lesen:
