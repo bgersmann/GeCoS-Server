@@ -77,19 +77,30 @@ class multiplex:
             return False
         return True
 
+    #read_byte_data(addr)
+    def readByte(self, kanal, address):
+        if (self._check_i2c()==True):
+            self.statusI2C=0
+            self.channel(mux,kanal)
+            try:
+                wert=self.bus.read_byte(address)
+            except:
+                self.statusI2C=1
+                return None
+            self.statusI2C=1
+        else:
+            return None
+        return wert
+
     #read_byte_data(addr, register)
     def readByteData(self, kanal, address, register):
         if (self._check_i2c()==True):
-            try:
-                self.statusI2C=0
-                self.channel(mux,kanal)
-                wert=self.bus.read_byte_data(address,register)
-                self.statusI2C=1
-            except:
-                wert="error"
-                self.statusI2C=1
+            self.statusI2C=0
+            self.channel(mux,kanal)
+            wert=self.bus.read_byte_data(address,register)
+            self.statusI2C=1
         else:
-            wert="error"
+            return None
         return wert
 
     #erg=plexer.bus.read_i2c_block_data(adresse,bconfig,4)
@@ -819,7 +830,6 @@ def set_input_konfig(kanal,adresse):
         return
     #Konfiguration als Ausgangsmodul:
     try:
-        plexer.channel(mux,kanal)
         plexer.writeByteData(kanal,adresse,bankAKonfig,inputKonfig)
         plexer.writeByteData(kanal,adresse,bankBKonfig,inputKonfig)
         plexer.writeByteData(kanal,adresse,IOCONA,0x44)
@@ -1121,13 +1131,11 @@ def set_output(arr):
         return
     try:
         #Bytes fuer Bank A + B auslesen
-        plexer.channel(mux,kanal) 
         iOutA=plexer.readByteData(kanal,adresse,bankA)
         iOutB=plexer.readByteData(kanal,adresse,bankB)
         tmpArrOut=int(arr[3]).to_bytes(2,"big")
         iOutA=tmpArrOut[1]
         iOutB=tmpArrOut[0]
-        plexer.channel(mux,kanal)
         plexer.writeByteData(kanal,adresse,bankA,iOutA)
         plexer.writeByteData(kanal,adresse,bankB,iOutB)
         #Prüfen und antworten.
@@ -1905,7 +1913,7 @@ def read_input(kanal,adresse, manual=0):
             befehl+="OK}"
             sendUDP(befehl)
 
-        #erneut lesen, auf änderung prüfen:
+            #erneut lesen, auf änderung prüfen:
         wertA2=plexer.readByteData(kanal,adresse,gpioA)
         wertB2=plexer.readByteData(kanal,adresse,gpioB)
         befehl="{SAI;"
@@ -2002,7 +2010,6 @@ def modulSuche(delete=0):
 
     for kanalSearch in range(3):        
         log("Suche Bus: {0} Kanal: {1}".format(bus,kanalSearch))
-        plexer.channel(mux,kanalSearch)
         tmpIN=""
         tmpOut=""
         tmpRGBW=""
@@ -2011,113 +2018,113 @@ def modulSuche(delete=0):
         tmpANA=""
         for device in range(128):
             try:
-                plexer.bus.read_byte(device)
-                if device!=mux and device!=I2CAdrDS2482:
-                    if device>=0x20 and device <=0x23:
-                        log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        tmpIN=tmpIN+hex(device)+";"
-                        if kanalSearch==0:
-                            if device not in aIN0:
-                                aIN0.append(device)
-                                set_input_konfig(kanalSearch,device)
-                        elif kanalSearch==1:
-                            if device not in aIN1:
-                                aIN1.append(device)
-                                set_input_konfig(kanalSearch,device)
-                        elif kanalSearch==2:
-                            if device not in aIN2:
-                                aIN2.append(device)
-                                set_input_konfig(kanalSearch,device)
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("IN")
-                        befehl+="}"
-                        sendUDP(befehl)
-                    elif device>=0x24 and device <=0x27:
-                        log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        tmpOut=tmpOut+hex(device)+";"
-                        if kanalSearch==0:
-                            if device not in aOut0:
-                                aOut0.append(device)
-                                set_output_konfig(kanalSearch,device)
-                        elif kanalSearch==1:
-                            if device not in aOut1:
-                                aOut1.append(device)
-                                set_output_konfig(kanalSearch,device)
-                        elif kanalSearch==2:
-                            if device not in aOut2:
-                                aOut2.append(device)
-                                set_output_konfig(kanalSearch,device)
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("OUT")
-                        befehl+="}"
-                        sendUDP(befehl)
-                    elif device>=0x50 and device <=0x57:
-                        log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        tmpPWM=tmpPWM+hex(device)+";"
-                        if kanalSearch==0:
-                            if device not in aPWM0:
-                                aPWM0.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        elif kanalSearch==1:
-                            if device not in aPWM1:
-                                aPWM1.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        elif kanalSearch==2:
-                            if device not in aPWM2:
-                                aPWM2.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("PWM")
-                        befehl+="}"
-                        sendUDP(befehl)
-                    elif device>=0x58 and device <=0x5f:
-                        log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        tmpRGBW=tmpRGBW+hex(device)+";"
-                        if kanalSearch==0:
-                            if device not in aRGBW0:
-                                aRGBW0.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        elif kanalSearch==1:
-                            if device not in aRGBW1:
-                                aRGBW1.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        elif kanalSearch==2:
-                            if device not in aRGBW2:
-                                aRGBW2.append(device)
-                                set_pwm_konfig(kanalSearch,device)
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("RGBW")
-                        befehl+="}"
-                        sendUDP(befehl)
-                    elif device>=0x68 and device <=0x6b:
-                        log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        tmpANA=tmpANA+hex(device)+";"
-                        if kanalSearch==0:
-                            if device not in aANA0:
-                                aANA0.append(device)
-                        elif kanalSearch==1:
-                            if device not in aANA1:
-                                aANA1.append(device)
-                        elif kanalSearch==2:
-                            if device not in aANA2:
-                                aANA2.append(device)
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("ANA")
-                        befehl+="}"
-                        sendUDP(befehl)
-                    else:
-                        tmpUnb=tmpUnb+hex(device)+";"
-                        log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
-                        befehl="{MOD;"
-                        befehl+="{0};{1};".format(kanalSearch,hex(device))
-                        befehl+="{0}".format("UNB")
-                        befehl+="}"
-                        sendUDP(befehl)
+                if (plexer.readByte(kanalSearch,device)!= None):
+                    if device!=mux and device!=I2CAdrDS2482:
+                        if device>=0x20 and device <=0x23:
+                            log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            tmpIN=tmpIN+hex(device)+";"
+                            if kanalSearch==0:
+                                if device not in aIN0:
+                                    aIN0.append(device)
+                                    set_input_konfig(kanalSearch,device)
+                            elif kanalSearch==1:
+                                if device not in aIN1:
+                                    aIN1.append(device)
+                                    set_input_konfig(kanalSearch,device)
+                            elif kanalSearch==2:
+                                if device not in aIN2:
+                                    aIN2.append(device)
+                                    set_input_konfig(kanalSearch,device)
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("IN")
+                            befehl+="}"
+                            sendUDP(befehl)
+                        elif device>=0x24 and device <=0x27:
+                            log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            tmpOut=tmpOut+hex(device)+";"
+                            if kanalSearch==0:
+                                if device not in aOut0:
+                                    aOut0.append(device)
+                                    set_output_konfig(kanalSearch,device)
+                            elif kanalSearch==1:
+                                if device not in aOut1:
+                                    aOut1.append(device)
+                                    set_output_konfig(kanalSearch,device)
+                            elif kanalSearch==2:
+                                if device not in aOut2:
+                                    aOut2.append(device)
+                                    set_output_konfig(kanalSearch,device)
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("OUT")
+                            befehl+="}"
+                            sendUDP(befehl)
+                        elif device>=0x50 and device <=0x57:
+                            log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            tmpPWM=tmpPWM+hex(device)+";"
+                            if kanalSearch==0:
+                                if device not in aPWM0:
+                                    aPWM0.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            elif kanalSearch==1:
+                                if device not in aPWM1:
+                                    aPWM1.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            elif kanalSearch==2:
+                                if device not in aPWM2:
+                                    aPWM2.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("PWM")
+                            befehl+="}"
+                            sendUDP(befehl)
+                        elif device>=0x58 and device <=0x5f:
+                            log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            tmpRGBW=tmpRGBW+hex(device)+";"
+                            if kanalSearch==0:
+                                if device not in aRGBW0:
+                                    aRGBW0.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            elif kanalSearch==1:
+                                if device not in aRGBW1:
+                                    aRGBW1.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            elif kanalSearch==2:
+                                if device not in aRGBW2:
+                                    aRGBW2.append(device)
+                                    set_pwm_konfig(kanalSearch,device)
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("RGBW")
+                            befehl+="}"
+                            sendUDP(befehl)
+                        elif device>=0x68 and device <=0x6b:
+                            log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            tmpANA=tmpANA+hex(device)+";"
+                            if kanalSearch==0:
+                                if device not in aANA0:
+                                    aANA0.append(device)
+                            elif kanalSearch==1:
+                                if device not in aANA1:
+                                    aANA1.append(device)
+                            elif kanalSearch==2:
+                                if device not in aANA2:
+                                    aANA2.append(device)
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("ANA")
+                            befehl+="}"
+                            sendUDP(befehl)
+                        else:
+                            tmpUnb=tmpUnb+hex(device)+";"
+                            log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
+                            befehl="{MOD;"
+                            befehl+="{0};{1};".format(kanalSearch,hex(device))
+                            befehl+="{0}".format("UNB")
+                            befehl+="}"
+                            sendUDP(befehl)
             except:
                 pass
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16IN',tmpIN)
@@ -2209,9 +2216,7 @@ if __name__ == '__main__':
     dsOW = DS2482()
 
     thread_gecosOut()
-
     #RTC Lesen:
-    #plexer.channel(mux,3)  
     ds = DS1307(plexer, 0x68)
     rtctime = ds.read_datetime()
     temp = ds.read_temp()
