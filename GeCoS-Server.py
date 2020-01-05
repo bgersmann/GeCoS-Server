@@ -139,7 +139,6 @@ class DS2482:
                 befehl+="}"
                 sendUDP(befehl)
                 log("Gerät gefunden: " + str(device), "INFO")
-                #print(hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16])
             befehl="{OWS;END}"
             sendUDP(befehl)
         except:
@@ -358,10 +357,10 @@ class DS2482:
                 
                 #serialnumber=owDeviceAddress[0][0]<<32 | owDeviceAddress[0][1]
                 if (self.OWCheckCRC()):
-                    #print("CRC OK")
+                    #CRC OK
                     return 1
                 else:
-                    #print("CRC NICHT OK")
+                    #CRC NICHT OK
                     return 1
         self._owLastDiscrepancy = 0
         self._owLastDevice = 0
@@ -2221,21 +2220,21 @@ if __name__ == '__main__':
         #Alle eingänge lesen
         time.sleep(0.01)
         #Schleife für Eingang Lesen:
-        # for device in aIN0:
-        #     try:
-        #         kanal=0
-        #         read_input(kanal,device)
-        #     except:
-        #         pass
-        # for device in aIN1:
-        #     try:
-        #         kanal=1
-        #         read_input(kanal,device)
-        #     except:
-        #         pass
-        # for device in aIN2:
-        #     try:
-        #         kanal=2
-        #         read_input(kanal,device)
-        #     except:
-        #         pass
+        for device in aIN0:
+            try:
+                kanal=0
+                read_input(kanal,device)
+            except:
+                pass
+        for device in aIN1:
+            try:
+                kanal=1
+                read_input(kanal,device)
+            except:
+                pass
+        for device in aIN2:
+            try:
+                kanal=2
+                read_input(kanal,device)
+            except:
+                pass
