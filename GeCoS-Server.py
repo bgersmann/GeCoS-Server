@@ -71,7 +71,11 @@ class multiplex:
         if (self._check_i2c()==True):
             self.statusI2C=0
             self.channel(mux,kanal)
-            self.bus.write_byte_data(address,register,wert)
+            try:
+                self.bus.write_byte_data(address,register,wert)
+            except:
+                self.statusI2C=1
+                return False
             self.statusI2C=1
         else:
             return False
@@ -2200,7 +2204,7 @@ if __name__ == '__main__':
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
     plexer = multiplex(bus)
-    plexer.channel(mux,kanal)
+    #plexer.channel(mux,kanal)
     log(datetime.now())
     #TCP Socket:
     log("UDP Port: {0}".format(miniServerPort))
