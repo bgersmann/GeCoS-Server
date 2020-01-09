@@ -71,6 +71,7 @@ class multiplex:
         if (self._check_i2c()==True):
             self.statusI2C=0
             self.channel(mux,kanal)
+            time.sleep(0.001)
             try:
                 self.bus.write_byte_data(address,register,wert)
             except:
