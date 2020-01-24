@@ -948,6 +948,10 @@ def getUDP():
             #Verbindung unterbrochen, Neue Verbindung akzeptieren:
             if conClosed==True:
                 log("Verbindung getrennt!","ERROR")
+                try:
+                    tcpSocket.close()
+                except:
+                    log("Fehler beim Socket schliessen","ERROR")
                 thread_gecosOut()
                 break
             else:
