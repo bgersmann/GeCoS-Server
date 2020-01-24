@@ -876,6 +876,10 @@ def getUDP():
     global clSocket
     global clIP
     conClosed=False
+    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
+    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+    tcpSocket.bind(("0.0.0.0",miniServerPort))
+    tcpSocket.listen(5)
     (clSocket, clIP) = tcpSocket.accept()
     log("Verbunden: {0}".format(clIP))
     while True:
@@ -950,10 +954,6 @@ def getUDP():
                 log("Verbindung getrennt!","ERROR")
                 try:
                     tcpSocket.close()
-                    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
-                    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-                    tcpSocket.bind(("0.0.0.0",miniServerPort))
-                    tcpSocket.listen(5)
                 except:
                     log("Fehler beim Socket schliessen","ERROR")
                 thread_gecosOut()
@@ -2217,10 +2217,10 @@ if __name__ == '__main__':
     log(datetime.now())
     #TCP Socket:
     log("UDP Port: {0}".format(miniServerPort))
-    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
-    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-    tcpSocket.bind(("0.0.0.0",miniServerPort))
-    tcpSocket.listen(5)
+    # tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
+    # tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+    # tcpSocket.bind(("0.0.0.0",miniServerPort))
+    # tcpSocket.listen(5)
     
     #Modulsuche:
     modulSuche(1)
