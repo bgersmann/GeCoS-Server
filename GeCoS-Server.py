@@ -950,6 +950,10 @@ def getUDP():
                 log("Verbindung getrennt!","ERROR")
                 try:
                     tcpSocket.close()
+                    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
+                    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+                    tcpSocket.bind(("0.0.0.0",miniServerPort))
+                    tcpSocket.listen(5)
                 except:
                     log("Fehler beim Socket schliessen","ERROR")
                 thread_gecosOut()
