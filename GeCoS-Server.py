@@ -1940,19 +1940,15 @@ def read_input(kanal,adresse, manual=0):
             wertA=wertA2
             wertB=wertB2        
     except OSError as err:
-        sStatus=str(err)
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
-        befehl+="IO Error Input lesen"
-        befehl+="{0}}}".format(sStatus)
+        befehl+="IO Error SAI}"
         sendUDP(befehl)
         log("I/O error: {0}".format(str(err)),"ERROR")
     except:
-        sStatus="Fehler Input lesen."
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
-        befehl+="Fehler Input lesen"
-        befehl+="{0}}}".format(sStatus)
+        befehl+="Fehler SAI}"
         sendUDP(befehl)
         log("Fehler Input lesen: {0}".format(befehl),"ERROR")
     finally:
