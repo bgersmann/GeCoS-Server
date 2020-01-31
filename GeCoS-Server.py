@@ -1929,9 +1929,9 @@ def read_input(kanal,adresse, manual=0):
             #erneut lesen, auf änderung prüfen:
         wertA2=plexer.readByteData(kanal,adresse,gpioA)
         wertB2=plexer.readByteData(kanal,adresse,gpioB)
-        befehl="{SAI;"
-        befehl+="{0};{1};".format(kanal,hex(adresse))
         if wertA2!=wertA or wertB2!=wertB:
+            befehl="{SAI;"
+            befehl+="{0};{1};".format(kanal,hex(adresse))
             iIn = [wertB2, wertA2]
             i=int.from_bytes(iIn,"big")
             befehl+="{0};".format(i)
