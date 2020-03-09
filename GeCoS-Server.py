@@ -466,7 +466,7 @@ class DS2482:
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
-                    time.sleep(0.750) #Warten auf messung
+                    time.sleep(0.760) #Warten auf messung
                     if (self.OWReset()):
                         self.OWSelect()
                         self.OWWriteByte(0xBE) #Lese Werte
