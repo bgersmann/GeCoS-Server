@@ -935,11 +935,11 @@ def dmxSetKanal(arr):
     #Array= {Befehl,Kanal,Laenge, Werte()}
     dmxKanal=arr[1]
     dmxLaenge=arr[2]
-    befehl="{{DMXSR;{0}".format(arr[0])
+    befehl="{{DMXSR;{0};{1};{2}".format(arr[0],arr[1],arr[2])
     if dmxKanal <1 or dmxKanal > 512:
         log("dmx Kanal ungueltig: {0}".format(dmxKanal))
         befehl="{"
-        befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
+        befehl+="DMXSR;{0};{1};{2};".format(arr[0],dmxKanal,dmxLaenge)
         for kanal in range(dmxLaenge):
             befehl+=arr[3+dmxKanal]+";"
         befehl+="DMX Kanal ungueltig}"
@@ -966,7 +966,7 @@ def dmxGetKanal(arr):
     if dmxKanal <1 or dmxKanal > 512:
         log("dmx Kanal ungueltig: {0}".format(dmxKanal))
         befehl="{"
-        befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
+        befehl+="DMXIR;{0};{1};".format(dmxKanal,dmxLaenge)
         for kanal in range(dmxLaenge):
             befehl+=arr[3+dmxKanal]+";"
         befehl+="DMX Kanal ungueltig}"
