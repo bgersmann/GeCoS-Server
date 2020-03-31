@@ -9,6 +9,7 @@ import socket
 import _thread
 import configparser
 import os
+import serial
 #import RPi.GPIO as GPIO
 
 #Status Variable 16IN 1x pro Bus mit 8 Werten
@@ -592,6 +593,47 @@ class DS2482:
             return celsius
 
 
+class PyDMX:
+    def __init__(self,COM='ttyS0',Brate=250000,Bsize=8,StopB=2):
+        #start serial
+        self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
+        self.data =[chr(0)]*513
+        self.data[0] = 0 # StartCode
+        self.sleepms = 50.0
+        self.breakus = 176.0
+        self.MABus = 16.0
+        
+
+    def set_data(self,id,data):
+        self.data[id]=data
+
+    def send(self):
+        # Send Break : 88us - 1s
+        self.ser.break_condition = True
+        time.sleep(self.breakus/1000000.0)
+        
+        # Send MAB : 8us - 1s
+        self.ser.break_condition = False
+        time.sleep(self.MABus/1000000.0)
+        
+        # Send Data
+        self.ser.write(bytearray(self.data))
+        
+        # Sleep
+        time.sleep(self.sleepms/1000.0) # between 0 - 1 sec
+
+    def sendzero(self):
+        self.data = [chr(0)]*513
+        self.send()
+
+    def __del__(self):
+        print('Close serial server!')
+        self.sendzero()
+        self.ser.close()
+
+
+
+
 
 #RTC:
 def _bcd_to_int(x):
@@ -920,6 +962,21 @@ def getUDP():
                 elif GeCoSInData=="RRTC":
                     read_rtc()
                     #RTC lesen
+                elif GeCoSInData=="DMX":
+                    #DMX Befehl:
+
+                elif GeCoSInData=="DMXS":
+                    #DMX Kanal setzen:
+                    
+                elif GeCoSInData=="DMXSR":
+                    #DMX Kanal Range setzen:
+
+                elif GeCoSInData=="DMXI":
+                    #DMX Kanal Auslesen
+
+                elif GeCoSInData=="DMXIR":
+                    #DMX Kanal Range:
+
                 elif len(GeCoSInData)>=7: #13
                     arr=GeCoSInData.split(";")
                     if arr[0]=="SOM":
