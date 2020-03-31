@@ -36,6 +36,7 @@ aRGBW2= []
 aANA0= []
 aANA1= []
 aANA2= []
+dmxStop=True
 I2CAdrDS2482= 0x18 #Adresse DS2482
 
 #MUX:
@@ -606,6 +607,9 @@ class PyDMX:
 
     def set_data(self,id,data):
         self.data[id]=data
+    
+    def get_data(self,id):
+        return self.data[id]
 
     def send(self):
         # Send Break : 88us - 1s
@@ -895,6 +899,88 @@ def set_input_konfig(kanal,adresse):
     except:
         log("Fehler beim Input konfigurieren","ERROR")
 
+def dmxThread():
+    #DMX Thread, senden min alle 1s, sonst fehler auf DMX Bus.
+    global dmxStop
+    while True:
+        dmx.send()
+        time.sleep(0.5)
+        if (dmxStop==True):
+            break
+
+def thread_DMXStart():
+    _thread.start_new_thread(dmxThread,())
+
+
+def dmxBefehl(arr):
+    dmxBefehl=arr[1]
+    befehl="{{DMX;{0}".format(dmxBefehl)
+    if (dmxBefehl=="Stop"):
+        dmxStop=True
+        status="OK"
+    elif (dmxBefehl=="Start"):
+        dmxStop=False
+        thread_gecosOut()
+        status="OK"
+    elif (dmxBefehl=="Status"):
+        #Status senden: dmxStop
+        status="Aktiv" if dmxStop == False else "Inaktiv"
+    else:
+        status ="ERROR"    
+
+    befehl +="{0}}}".format(status)
+    sendUDP(befehl)
+
+def dmxSetKanal(arr):
+    #Array= {Befehl,Kanal,Laenge, Werte()}
+    dmxKanal=arr[1]
+    dmxLaenge=arr[2]
+    befehl="{{DMXSR;{0}".format(arr[0])
+    if dmxKanal <1 or dmxKanal > 512:
+        log("dmx Kanal ungueltig: {0}".format(dmxKanal))
+        befehl="{"
+        befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
+        for kanal in range(dmxLaenge):
+            befehl+=arr[3+dmxKanal]+";"
+        befehl+="DMX Kanal ungueltig}"
+        sendUDP(befehl) 
+        return
+    for kanal in range(dmxLaenge):
+        print(dmxKanal+kanal)
+        dmx.set_data(dmxKanal+kanal,arr[3+kanal])
+        status ="OK"    
+
+    befehl="{"
+    befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
+    for kanal in range(dmxLaenge):
+        befehl+=arr[3+dmxKanal]+";"
+    befehl+=status
+    befehl+="}"
+    sendUDP(befehl)
+
+def dmxGetKanal(arr):
+    #Array= {Befehl,Kanal,Laenge, Werte()}
+    dmxKanal=arr[1]
+    dmxLaenge=arr[2]
+    befehl="{{{0}}};{1};{2}".format(arr[0],arr[1],arr[2])
+    if dmxKanal <1 or dmxKanal > 512:
+        log("dmx Kanal ungueltig: {0}".format(dmxKanal))
+        befehl="{"
+        befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
+        for kanal in range(dmxLaenge):
+            befehl+=arr[3+dmxKanal]+";"
+        befehl+="DMX Kanal ungueltig}"
+        sendUDP(befehl) 
+        return
+    for kanal in range(dmxLaenge):
+        print(dmxKanal+kanal)
+        befehl+=";"+dmx.get_data(dmxKanal+kanal)
+        status="OK"
+    befehl+=";"+status
+    befehl+="}"
+    sendUDP(befehl) 
+
+
 def sendUDP(data):
     #Daten Senden
     global clSocket
@@ -962,21 +1048,6 @@ def getUDP():
                 elif GeCoSInData=="RRTC":
                     read_rtc()
                     #RTC lesen
-                elif GeCoSInData=="DMX":
-                    #DMX Befehl:
-
-                elif GeCoSInData=="DMXS":
-                    #DMX Kanal setzen:
-                    
-                elif GeCoSInData=="DMXSR":
-                    #DMX Kanal Range setzen:
-
-                elif GeCoSInData=="DMXI":
-                    #DMX Kanal Auslesen
-
-                elif GeCoSInData=="DMXIR":
-                    #DMX Kanal Range:
-
                 elif len(GeCoSInData)>=7: #13
                     arr=GeCoSInData.split(";")
                     if arr[0]=="SOM":
@@ -994,6 +1065,15 @@ def getUDP():
                     elif arr[0]=="SRTC":
                         #RTC Setzen
                         set_rtc(arr)
+                    elif arr[0]=="DMX":
+                        #DMX Befehl:
+                        dmxBefehl(arr)
+                    elif arr[0]=="DMXSR":
+                        #DMX Kanal Range setzen:
+                        dmxSetKanal(arr)
+                    elif arr[0]=="DMXIR":
+                        #DMX Kanal Range:
+                        dmxGetKanal(arr)
                     else:
                         GeCoSInData.replace("{","")
                         GeCoSInData.replace("}","")
@@ -1124,7 +1204,7 @@ def OWSearchDevice():
         dsOW.OWSearchBus()
         statusOW=1
     else:
-        log("OneWire Bus Belegt","INFO")   
+        log("OneWire Bus Belegt","INFO")
 
 def thread_gecosOut():
     _thread.start_new_thread(getUDP,())
@@ -2251,35 +2331,20 @@ if __name__ == '__main__':
     #Config lesen:
     configSchreiben('Allgemein','x','x')
    
-    #Interrupt routine GeCoS 16 IN -> in Schleife geändert
-    #GPIO.setmode(GPIO.BCM)
-    #Kanal0
-    #GPIO.setup(intKanal0,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    #GPIO.add_event_detect(intKanal0, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
-    #Kanal1
-    #GPIO.setup(intKanal1,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    #GPIO.add_event_detect(intKanal1, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
-    #Kanal2
-    #GPIO.setup(intKanal2,GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-    #GPIO.add_event_detect(intKanal2, GPIO.FALLING, callback=thread_interrupt, bouncetime = 5)
-
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
     plexer = multiplex(bus)
-    #plexer.channel(mux,kanal)
+
     log(datetime.now())
-    #TCP Socket:
-    log("UDP Port: {0}".format(miniServerPort))
-    # tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
-    # tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-    # tcpSocket.bind(("0.0.0.0",miniServerPort))
-    # tcpSocket.listen(5)
     
     #Modulsuche:
     modulSuche(1)
     
     #OneWire:
     dsOW = DS2482()
+
+    #DMX
+    dmx=PyDMX()
 
     thread_gecosOut()
     #RTC Lesen:
