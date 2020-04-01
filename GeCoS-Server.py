@@ -2359,24 +2359,27 @@ if __name__ == '__main__':
     temp = ds.read_temp()
     print ("DS3231 Date: {0} Temp: {1} ".format(rtctime.strftime("%d.%m.%Y %H:%M:%S"),str(temp)))
     while True:
-        #Alle eingänge lesen
-        time.sleep(0.01)
-        #Schleife für Eingang Lesen:
-        for device in aIN0:
-            try:
-                kanal=0
-                read_input(kanal,device)
-            except:
-                pass
-        for device in aIN1:
-            try:
-                kanal=1
-                read_input(kanal,device)
-            except:
-                pass
-        for device in aIN2:
-            try:
-                kanal=2
-                read_input(kanal,device)
-            except:
-                pass
+        try:
+            #Alle eingänge lesen
+            time.sleep(0.01)
+            #Schleife für Eingang Lesen:
+            for device in aIN0:
+                try:
+                    kanal=0
+                    read_input(kanal,device)
+                except:
+                    pass
+            for device in aIN1:
+                try:
+                    kanal=1
+                    read_input(kanal,device)
+                except:
+                    pass
+            for device in aIN2:
+                try:
+                    kanal=2
+                    read_input(kanal,device)
+                except:
+                    pass
+        except KeyboardInterrupt:
+            break
