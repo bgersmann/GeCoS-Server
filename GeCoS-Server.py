@@ -929,11 +929,14 @@ def dmxBefehl(arr):
         status="OK"
     elif (dmxBefehl=="Status"):
         #Status senden: dmxStop
-        status="Aktiv" if dmxStop == False else "Inaktiv"
+        if (dmxStop == False):
+            status="Aktiv" 
+        else:
+            status ="Inaktiv"
     else:
         status ="ERROR"    
 
-    befehl +="{0}}}".format(status)
+    befehl +=";{0}}}".format(status)
     sendUDP(befehl)
 
 def dmxSetKanal(arr):
