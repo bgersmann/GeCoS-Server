@@ -633,7 +633,6 @@ class PyDMX:
         self.send()
 
     def __del__(self):
-        print('Close serial server!')
         self.sendzero()
         self.ser.close()
 
