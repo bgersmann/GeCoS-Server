@@ -926,7 +926,7 @@ def dmxBefehl(arr):
         status="OK"
     elif (dmxBefehl=="Start"):
         dmxStop=False
-        thread_gecosOut()
+        thread_DMXStart()
         status="OK"
     elif (dmxBefehl=="Status"):
         #Status senden: dmxStop
