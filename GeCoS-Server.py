@@ -622,7 +622,7 @@ class PyDMX:
         time.sleep(self.MABus/1000000.0)
         
         # Send Data
-        sdata="".join(self.data)
+        sdata="".join(str(v) for v in self.data)
         self.ser.write(sdata.encode('ASCII'))
         
         # Sleep
