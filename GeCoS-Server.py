@@ -900,7 +900,7 @@ def set_input_konfig(kanal,adresse):
     except:
         log("Fehler beim Input konfigurieren","ERROR")
 
-def dmxThread():
+def dmxThread(dmx):
     #DMX Thread, senden min alle 1s, sonst fehler auf DMX Bus.
     global dmxStop
     while True:
@@ -914,7 +914,7 @@ def thread_DMXStart():
         dmx
     except NameError:
         dmx=PyDMX('/dev/ttyS0')
-    _thread.start_new_thread(dmxThread,())
+    _thread.start_new_thread(dmxThread,(dmx,))
 
 
 def dmxBefehl(arr):
