@@ -596,7 +596,7 @@ class DS2482:
 
 class PyDMX:
     import serial
-    def __init__(self,COM='ttyS0',Brate=250000,Bsize=8,StopB=2):
+    def __init__(self,COM='/dev/ttyS0',Brate=250000,Bsize=8,StopB=2):
         #start serial
         self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
         self.data =[chr(0)]*513
@@ -913,7 +913,7 @@ def thread_DMXStart():
     try:
         dmx
     except NameError:
-        dmx=PyDMX()
+        dmx=PyDMX('/dev/ttyS0')
     _thread.start_new_thread(dmxThread,())
 
 
