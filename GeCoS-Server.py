@@ -598,7 +598,7 @@ class PyDMX:
     import serial
     def __init__(self,COM='/dev/ttyS0',Brate=250000,Bsize=8,StopB=2):
         #start serial
-        self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
+        self.ser = Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
         self.data =[chr(0)]*513
         self.data[0] = 0 # StartCode
         self.sleepms = 50.0
