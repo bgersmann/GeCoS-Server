@@ -918,6 +918,7 @@ def thread_DMXStart():
 
 
 def dmxBefehl(arr):
+    global dmxStop
     dmxBefehl=arr[1]
     befehl="{{DMX;{0}".format(dmxBefehl)
     if (dmxBefehl=="Stop"):
