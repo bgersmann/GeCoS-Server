@@ -9,7 +9,7 @@ import socket
 import _thread
 import configparser
 import os
-import serial
+
 #import RPi.GPIO as GPIO
 
 #Status Variable 16IN 1x pro Bus mit 8 Werten
@@ -595,6 +595,7 @@ class DS2482:
 
 
 class PyDMX:
+    import serial
     def __init__(self,COM='ttyS0',Brate=250000,Bsize=8,StopB=2):
         #start serial
         self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
@@ -909,6 +910,10 @@ def dmxThread():
             break
 
 def thread_DMXStart():
+    try:
+        dmx
+    except NameError:
+        dmx=PyDMX()
     _thread.start_new_thread(dmxThread,())
 
 
@@ -2342,9 +2347,6 @@ if __name__ == '__main__':
     
     #OneWire:
     dsOW = DS2482()
-
-    #DMX
-    dmx=PyDMX()
 
     thread_gecosOut()
     #RTC Lesen:
