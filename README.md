@@ -32,7 +32,7 @@ Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
 "OWV" = One Wire Values -> {OWV;OWDevice ID}  (```{OWV;28-610119138fdf1b}``` -> ```{OWV;28-610119138fdf1b;23.568;OK}```) <br>
 "OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  (```{OWC;28-610119138fdf1b;31}``` -> ```{OWC;28-610119138fdf1b;31;OK}```) -> Typ abhängig! <br> 
 <br>
-"DMX" -> "DMX Befehl" Sendet "Start","Stop",Status" Befehl {DMX;Befehl} (```{DMX;STATUS}```-> ```{DMX;STATUS;AKTIV}```)<br>
+"DMX" -> "DMX Befehl" Sendet "Start","Stop",Status" Befehl {DMX;Befehl} (```{DMX;Status}```-> ```{DMX;Status;Aktiv}```)<br>
 "DMXSR" -> "DMX Set Range"-> Setz Mehrere Kanäle auf Wert -> {DMXSR;KanalStart;Anzahl;Werte;...;..} (```{DMXSR;15;4;255;0;128;55}```-> ```{DMXSR;15;4;255;0;128;55;OK}```)  Kanal 1-512, Wert 0-255 <br>
 "DMXIR" -> "DMX Info Range" -> Liest Kanal Werte -> {DMXIR;Kanal,Anzahl} (```{DMXIR;15;4}```-> ```{DMXIR;15;4;255;128;0;255;OK}```) Kanal 1-512 <br>
 Kanal 0-2<br>
