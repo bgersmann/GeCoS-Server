@@ -2,6 +2,7 @@
 Python GeCoS Server Script. Ansprechbar per UDP-WebSocket<br>
 
 ### Befehlsaufbau:<br>
+Parmeter: -d -> Zeigt Debug informationen
 Befehl in geschweiften klammern verpackt: ```{}``` <br>
 Trennzeichen: ```;``` <br>
 Erste Info: Funktion (x-Buchstaben) <br>

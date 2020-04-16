@@ -9,6 +9,7 @@ import socket
 import _thread
 import configparser
 import os
+import argparse
 
 #import RPi.GPIO as GPIO
 
@@ -18,6 +19,7 @@ statIN1 = [0,0,0,0,0,0,0,0]
 statIN2 = [0,0,0,0,0,0,0,0]
 
 #Globale Variablen
+printDebug=False
 statusOW=1
 clSocket = ""
 clIP = ""
@@ -955,7 +957,7 @@ def dmxSetKanal(arr):
         sendUDP(befehl) 
         return
     for kanal in range(dmxLaenge):
-        print(dmxKanal+kanal)
+        log(dmxKanal+kanal)
         dmx.set_data(dmxKanal+kanal,arr[3+kanal])
         status ="OK"    
 
@@ -982,7 +984,7 @@ def dmxGetKanal(arr):
         sendUDP(befehl) 
         return
     for kanal in range(dmxLaenge):
-        print(dmxKanal+kanal)
+        log(dmxKanal+kanal)
         befehl+=";"+dmx.get_data(dmxKanal+kanal)
         status="OK"
     befehl+=";"+status
@@ -1319,7 +1321,8 @@ def set_output(arr):
         
 def log(message, level="INFO"):
     timestamp= datetime.now().strftime("%H:%M:%S.%f") #time.strftime("%d.%m.%Y %H:%M:%S.%f", time.localtime(time.time()))
-    print("{0} {1}: {2}".format(timestamp, level, message))
+    if printDebug==True:
+        print("{0} {1}: {2}".format(timestamp, level, message))
     if level=="ERROR":
         file = open("/home/pi/logfile.log","a")
         file.write("%s: %s\n" % (time.strftime("%d.%m.%Y %H:%M:%S"), message))
@@ -2298,6 +2301,13 @@ def bit_from_string(string, index):
 if __name__ == '__main__':
     #Konfig Werte MCP:
     log("Script gestartet","ERROR")
+    #ArgParser:
+    parser = argparse.ArgumentParser(description='True/False print output aktiv')
+    parser.add_argument('--d', help='Prints debug output',action='store_true')
+    args = parser.parse_args()
+    if args.d:
+        printDebug=True
+
     bus=1       # 0 for rev1 boards etc.
     mux=0x71
     kanal=0
@@ -2357,7 +2367,7 @@ if __name__ == '__main__':
     ds = DS1307(plexer, 0x68)
     rtctime = ds.read_datetime()
     temp = ds.read_temp()
-    print ("DS3231 Date: {0} Temp: {1} ".format(rtctime.strftime("%d.%m.%Y %H:%M:%S"),str(temp)))
+    log ("DS3231 Date: {0} Temp: {1} ".format(rtctime.strftime("%d.%m.%Y %H:%M:%S"),str(temp)))
     while True:
         try:
             #Alle eingänge lesen
