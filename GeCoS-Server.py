@@ -10,6 +10,7 @@ import _thread
 import configparser
 import os
 import argparse
+import numpy as np
 
 #import RPi.GPIO as GPIO
 
@@ -597,13 +598,14 @@ class DS2482:
 
 
 class PyDMX:
-    def __init__(self,COM='/dev/ttyS0',Brate=250000,Bsize=8,StopB=2):
+    def __init__(self,COM='/dev/ttyAMA0',Brate=250000,Bsize=8,StopB=2):
         import serial
         #start serial
         self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
-        self.data =[chr(0)]*513
+        self.data = np.zeros([513],dtype='uint8')
+#        self.data =[chr(0)]*513
         self.data[0] = 0 # StartCode
-        self.sleepms = 50.0
+        self.sleepms = 250.0
         self.breakus = 176.0
         self.MABus = 16.0
         
@@ -624,9 +626,11 @@ class PyDMX:
         time.sleep(self.MABus/1000000.0)
         
         # Send Data
-        sdata="".join(str(v) for v in self.data)
-        self.ser.write(sdata.encode('ASCII'))
-        
+       # print(bytearray(self.data))
+        self.ser.write(bytearray(self.data))
+#        sdata="".join(str(v) for v in self.data)
+#        self.ser.write(sdata.encode('ASCII'))
+#        print(sdata)
         # Sleep
         time.sleep(self.sleepms/1000.0) # between 0 - 1 sec
 
@@ -639,7 +643,7 @@ class PyDMX:
         self.ser.close()
 
 
-
+dmx=PyDMX('/dev/ttyAMA0')
 
 
 #RTC:
@@ -912,6 +916,7 @@ def dmxThread(dmx):
             break
 
 def thread_DMXStart():
+    global dmx
     try:
         dmx
     except NameError:
@@ -943,49 +948,62 @@ def dmxBefehl(arr):
     sendUDP(befehl)
 
 def dmxSetKanal(arr):
+    global dmx
     #Array= {Befehl,Kanal,Laenge, Werte()}
-    dmxKanal=arr[1]
-    dmxLaenge=arr[2]
+    global dmxStop
+    dmxKanal=int(arr[1])
+    dmxLaenge=int(arr[2])
     befehl="{{DMXSR;{0};{1};{2}".format(arr[0],arr[1],arr[2])
-    if dmxKanal <1 or dmxKanal > 512:
+    if dmxKanal <1 or dmxKanal+dmxLaenge > 512:
         log("dmx Kanal ungueltig: {0}".format(dmxKanal))
         befehl="{"
         befehl+="DMXSR;{0};{1};{2};".format(arr[0],dmxKanal,dmxLaenge)
         for kanal in range(dmxLaenge):
-            befehl+=arr[3+dmxKanal]+";"
+            befehl+=arr[3+kanal]+";"
         befehl+="DMX Kanal ungueltig}"
         sendUDP(befehl) 
         return
+    if (dmxStop == True):
+        log("dmx inaktiv: {0}".format(dmxKanal))
+        befehl="{"
+        befehl+="DMXSR;{0};{1};{2};".format(arr[0],dmxKanal,dmxLaenge)
+        for kanal in range(dmxLaenge):
+            befehl+=arr[3+kanal]+";"
+        befehl+="DMX inaktiv}"
+        sendUDP(befehl) 
+        return
+
     for kanal in range(dmxLaenge):
-        log(dmxKanal+kanal)
-        dmx.set_data(dmxKanal+kanal,arr[3+kanal])
+        dmx.set_data(1+dmxKanal+kanal,int(arr[3+kanal]))
         status ="OK"    
 
     befehl="{"
     befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
     for kanal in range(dmxLaenge):
-        befehl+=arr[3+dmxKanal]+";"
+        befehl+=arr[3+kanal]+";"
     befehl+=status
     befehl+="}"
     sendUDP(befehl)
 
 def dmxGetKanal(arr):
     #Array= {Befehl,Kanal,Laenge, Werte()}
-    dmxKanal=arr[1]
-    dmxLaenge=arr[2]
-    befehl="{{{0}}};{1};{2}".format(arr[0],arr[1],arr[2])
+    dmxKanal=int(arr[1])
+    dmxLaenge=int(arr[2])
+    befehl="{{{0};{1};{2}".format(arr[0],arr[1],arr[2])
     if dmxKanal <1 or dmxKanal > 512:
         log("dmx Kanal ungueltig: {0}".format(dmxKanal))
         befehl="{"
         befehl+="DMXIR;{0};{1};".format(dmxKanal,dmxLaenge)
         for kanal in range(dmxLaenge):
-            befehl+=arr[3+dmxKanal]+";"
+            befehl+=arr[3+kanal]+";"
         befehl+="DMX Kanal ungueltig}"
         sendUDP(befehl) 
         return
+    log(befehl)
     for kanal in range(dmxLaenge):
         log(dmxKanal+kanal)
-        befehl+=";"+dmx.get_data(dmxKanal+kanal)
+        log(dmx.get_data(dmxKanal+kanal))
+        befehl+=";"+str(dmx.get_data(1+dmxKanal+kanal))
         status="OK"
     befehl+=";"+status
     befehl+="}"
