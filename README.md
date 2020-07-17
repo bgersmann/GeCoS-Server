@@ -63,6 +63,13 @@ FamilyCode ```3a```:<br>
 Value: ```0``` -> IOA+IOB = LOW, ```1```-> IOA = HIGH;IOB = LOW, ```2```-> IOA = LOW; IOB = High, ```3```-> IOA+IOB = High<br>
 ```{OWC;28-610119138fdf1b;3}``` -> ```{OWC;28-610119138fdf1b;3;OK}```<br>
 
+### DMX <br>
+DMX über ```ttyAMA0``` <br>
+Bei PI3 folgende Einstellungen in Config.txt ergänzen: <br>
+```dtoverlay=disable-bt```<br>
+```force_turbo=1```<br>
+<br>
+
 ## Download und Einrichten:<br>
 Download des git Verzeichnisses:<br>
 `git clone https://github.com/bgersmann/GeCoS-Server`<br>
