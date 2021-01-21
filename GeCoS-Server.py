@@ -382,7 +382,7 @@ class DS2482:
                     return 1
                 else:
                     #CRC NICHT OK
-                    return 1
+                    return 0
         self._owLastDiscrepancy = 0
         self._owLastDevice = 0
         return 0
@@ -476,9 +476,17 @@ class DS2482:
                         self.OWSelect()
                         self.OWWriteByte(0xBE) #Lese Werte
 
-            data = [0,0,0,0,0]
-            for i in range(0,5):
+            data = [0,0,0,0,0,0,0,0,0]
+            for i in range(0,9):                
                 data[i] = self.OWReadByte()
+               
+            crc = 0
+            for j in range(0,8):
+                crc = self.AddCRC(data[j], crc)
+            
+            if data[8] != crc:
+                 celsius=-85
+                 return celsius
 
             raw = (data[1] << 8) | data[0]
             SignBit = raw & 0x8000  # test most significant bit
