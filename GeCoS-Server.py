@@ -57,8 +57,9 @@ class multiplex:
                 iCnt+=1
                 if iCnt >= 150:
                     log("I2C Status: {0}".format(str(self.statusI2C)),"ERROR")
-                if iCnt>= 2000:
+                if iCnt>= 500:
                     log("I2C Status Abbruch: {0}".format(str(self.statusI2C)),"ERROR")
+                    self.statusI2C=1
                     return False
                 time.sleep(0.001)
         return False
