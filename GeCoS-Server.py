@@ -1465,7 +1465,7 @@ def read_rtc():
         sArr+= "{0};".format(ds.read_temp())
         sArr+="OK}"
         sendUDP(sArr)
-    except Exception as e:: 
+    except Exception as e:
         sArr="{RRTC;"
         sArr+="Fehler RTC lesen}"
         sendUDP(sArr) 
