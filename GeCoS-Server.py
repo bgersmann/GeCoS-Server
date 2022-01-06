@@ -107,8 +107,13 @@ class multiplex:
     def readByteData(self, kanal, address, register):
         if (self._check_i2c()==True):
             self.statusI2C=0
-            self.channel(mux,kanal)
-            wert=self.bus.read_byte_data(address,register)
+            try:
+                self.channel(mux,kanal)
+                wert=self.bus.read_byte_data(address,register)
+            except:
+                #zweiter versuch um selten auftretende "Remote I/O Error abzufangen"
+                self.channel(mux,kanal)
+                wert=self.bus.read_byte_data(address,register)
             self.statusI2C=1
         else:
             return None
