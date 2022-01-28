@@ -657,8 +657,6 @@ class PyDMX:
         self.ser.close()
 
 
-dmx=PyDMX('/dev/ttyAMA0')
-
 
 #RTC:
 def _bcd_to_int(x):
@@ -2379,6 +2377,11 @@ if __name__ == '__main__':
     
     #Config lesen:
     configSchreiben('Allgemein','x','x')
+
+    try:
+        dmx=PyDMX('/dev/ttyAMA0')
+    except:  
+        log("Fehler DMX","ERROR")
    
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
