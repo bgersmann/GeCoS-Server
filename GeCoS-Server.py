@@ -1146,9 +1146,7 @@ def OWReadDevice(arr):
         if _check_OW():
             statusOW=0
             if dsOW.OWSelectAdress(arr[1])==True:
-                temp=dsOW.DS18B20OWReadTemp()
-                if temp<0:
-                    temp=-85
+                temp=dsOW.DS18B20OWReadTemp()               
                 status ="{0};{1}".format(str(temp),"OK")
             else:      
                 log("Fehler beim Adresse einstellen","INFO")
