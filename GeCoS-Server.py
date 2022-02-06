@@ -515,8 +515,6 @@ class DS2482:
             celsius = raw / 16.0
             if (SignBit):
                 celsius = celsius * (-1)
-            if (celsius<=-30):
-                celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
         except:
@@ -1149,7 +1147,7 @@ def OWReadDevice(arr):
             statusOW=0
             if dsOW.OWSelectAdress(arr[1])==True:
                 temp=dsOW.DS18B20OWReadTemp()
-                if temp<-30:
+                if temp<0:
                     temp=-85
                 status ="{0};{1}".format(str(temp),"OK")
             else:      
