@@ -2119,13 +2119,13 @@ def read_input(kanal,adresse, manual=0):
     except OSError as err:
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
-        befehl+="IO Error SAI}"
+        befehl+="0;IO Error SAI}"
         sendUDP(befehl)
         log("I/O error: {0}".format(str(err)),"ERROR")
     except:
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
-        befehl+="Fehler SAI}"
+        befehl+="0;Fehler SAI}"
         sendUDP(befehl)
         log("Fehler Input lesen: {0}".format(befehl),"ERROR")
     finally:
