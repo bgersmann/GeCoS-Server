@@ -1,74 +1,178 @@
 # GeCoS-Server
-Python GeCoS Server Script. Ansprechbar per UDP-WebSocket<br>
 
-### Befehlsaufbau:<br>
-Parmeter: -d -> Zeigt Debug informationen
-Befehl in geschweiften klammern verpackt: ```{}``` <br>
-Trennzeichen: ```;``` <br>
-Erste Info: Funktion (x-Buchstaben) <br>
-2. Info: BUS 0-2 <br>
-3. Info: Modul Adresse <br> 
-n. Sachinformation (z.B.: Port Status) <br> 
-Antwort mit Befehl + Status <br>
+Python GeCoS Server Script - Gebäudecontrol System Server
 
-Bsp.: Output setzen, alle Ausgänge einschalten:  <br> 
-Befehl:     ```{SOM;1;0x24;65535}``` <br>
-Antwort:    ```{SOM;1;0x24;65535;OK}``` <br>
+Steuert I2C-basierte Ein-/Ausgangsmodule über TCP/IP
 
-Es werden nur Module ausgelesen die bei der Modulsuche(MOD) gefunden wurde. <br>
+## Features
 
-### Funktionen:<br>
-"SAI" = Status All IN -> Liest alle Eingangsmodule und sendet aktuellen Status<br>
-"SAO" = Status All Out -> Liest alle Ausgangsmodule und sendet aktuellen Status<br>
-"MOD" = Modulsuche -> Sucht nach Modulen und Antwortet mit Moduladressen<br>
-"SPWM" = Status All PWM -> Liest alle PWM Module aus und sendet aktuellen Status<br>
-"SRGBW" = Status All RGBW -> Liest alle RGBW Module aus und sendet aktuellen Status<br>
-"SOM" = "Set Output Module" -> INT Big = port A; Litte = Port B<br>
-"PWM" = "Set PWM Module" -> {PWM;I2C-Kanal;Adresse;PWMKanal;Status;Wert} Status=0/1 (0=Aus,1=Ein), Wert=0-4095<br>
-"RGBW" = "Set RGBW Module" -> {RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W} Status=0/1 (0=Aus,1=Ein), R/G/B/W=0-4095 <br>
-"SAM" = "Status Analog Module" -> {SAM;0;0x69;AnalogChannel;Resolution;Amplifier}  <br>
-"RRTC" = Read RTC  -> {RRTC} -> {RRTC;TT;MM;JJJJ;HH;MM;SS;OK}  <br>
-"SRTC" = Set RTC    ->  {SRTC;TT;MM;JJJJ;HH;MM;SS;TEMP} <br>
-"OWS" = One Wire Suche -> {OWS} <br>
-"OWV" = One Wire Values -> {OWV;OWDevice ID}  (```{OWV;28-610119138fdf1b}``` -> ```{OWV;28-610119138fdf1b;23.568;OK}```) <br>
-"OWC" = One Wire Config -> {OWC;OWDevice ID;Werte}  (```{OWC;28-610119138fdf1b;31}``` -> ```{OWC;28-610119138fdf1b;31;OK}```) -> Typ abhängig! <br> 
-<br>
-"DMX" -> "DMX Befehl" Sendet "Start","Stop",Status" Befehl {DMX;Befehl} (```{DMX;Status}```-> ```{DMX;Status;Aktiv}```)<br>
-"DMXSR" -> "DMX Set Range"-> Setz Mehrere Kanäle auf Wert -> {DMXSR;KanalStart;Anzahl;Werte;...;..} (```{DMXSR;15;4;255;0;128;55}```-> ```{DMXSR;15;4;255;0;128;55;OK}```)  Kanal 1-512, Wert 0-255 <br>
-"DMXIR" -> "DMX Info Range" -> Liest Kanal Werte -> {DMXIR;Kanal,Anzahl} (```{DMXIR;15;4}```-> ```{DMXIR;15;4;255;128;0;255;OK}```) Kanal 1-512 <br>
-Kanal 0-2<br>
+- I2C-Multiplexer Unterstützung (TCA9548A)
+- TCP-basierte Kommunikation
+- OneWire-Unterstützung (DS18B20, DS18S20, DS2413, MAX31850)
+- RTC-Integration (DS1307/DS3231)
+- PWM-Steuerung (PCA9685)
+- RGBW-LED-Steuerung
+- Analog-Eingänge (MCP3424)
+- 16 Ein-/Ausgänge pro Modul (MCP23017)
 
-### MOD - Antworten<br>
-```{MOD;0;0x24;OUT}```    -> 16Out erkannt<br>
-```{MOD;0;0x20;IN}```     -> 16In erkannt<br>
-```{MOD;0;0x50;PWM}```    -> PWM erkannt<br>
-```{MOD;0;0x58;RGBW}```   -> RGBW erkannt<br>
-```{MOD;0;0x68;ANA}```    -> Analog erkannt<br>
-```{MOD;0;0x05;UNB}```    -> Unbekanntes i2c device<br>
-```{MOD;0;0;END}```    -> Suche beendet<br>
+## Anforderungen
 
-### OWS -Antwort <br>
-```{OWS;28-610119138fdf1b}}``` -> DS18B20<br>
-```{OWS;10-460008037049d3}```   -> DS18S20<br>
-```{OWS;3a-1d000000455f51}``` -> DS2413<br>
-```{OWS;3b-910cfc09590677}``` -> MAX31850<br>
-```{OWS;0;0;END}```    -> Suche beendet<br>
+- Python 3.6+
+- Raspberry Pi mit I2C aktiviert
+- Benötigte Python-Pakete:
+  - smbus
+  - argparse (Standard-Bibliothek)
+  - threading (Standard-Bibliothek)
 
-### OWC - Optionen <br>
-FamilyCode ```28```:<br>
-Resolution: ```31``` -> 9Bit, ```63```-> 10Bit, ```95```-> 11Bit, ```127```-> 12Bit<br>
-```{OWC;28-610119138fdf1b;127}``` -> ```{OWC;28-610119138fdf1b;127;OK}```<br>
-<br>
-FamilyCode ```3a```:<br>
-Value: ```0``` -> IOA+IOB = LOW, ```1```-> IOA = HIGH;IOB = LOW, ```2```-> IOA = LOW; IOB = High, ```3```-> IOA+IOB = High<br>
-```{OWC;28-610119138fdf1b;3}``` -> ```{OWC;28-610119138fdf1b;3;OK}```<br>
+## Befehlsaufbau
 
-### DMX <br>
-DMX über ```ttyAMA0``` <br>
-Bei PI3 folgende Einstellungen in Config.txt ergänzen: <br>
-```dtoverlay=disable-bt```<br>
-```force_turbo=1```<br>
-<br>
+**Parameter:**
+- `--debug` oder `-d` → Zeigt Debug-Informationen
+
+**Befehlsstruktur:**
+- Befehl in geschweiften Klammern: `{}`
+- Trennzeichen: `;`
+- 1. Info: Funktion (Buchstaben-Code)
+- 2. Info: I2C-Bus (0-2)
+- 3. Info: Modul-Adresse
+- n. Info: Sachinformation (z.B. Port-Status)
+- Antwort: Befehl + Status
+
+**Beispiel - Output setzen:**
+```
+Befehl:  {SOM;1;0x24;65535}
+Antwort: {SOM;1;0x24;65535;OK}
+```
+
+> **Hinweis:** Es werden nur Module ausgelesen, die bei der Modulsuche (`MOD`) gefunden wurden.
+
+## Funktionen
+
+### Allgemeine Befehle
+
+| Befehl | Beschreibung | Beispiel |
+|--------|-------------|----------|
+| `MOD` | Modulsuche - Sucht nach allen I2C-Modulen | `{MOD}` |
+| `SAI` | Status All IN - Liest alle Eingangsmodule | `{SAI}` |
+| `SAO` | Status All OUT - Liest alle Ausgangsmodule | `{SAO}` |
+| `SPWM` | Status All PWM - Liest alle PWM-Module | `{SPWM}` |
+| `SRGBW` | Status All RGBW - Liest alle RGBW-Module | `{SRGBW}` |
+
+### Modul-Steuerung
+
+**Output-Modul (16 Ausgänge):**
+```
+{SOM;Kanal;Adresse;Wert}
+Beispiel: {SOM;0;0x24;65535}  // Alle Ausgänge EIN
+```
+
+**PWM-Modul:**
+```
+{PWM;Kanal;Adresse;PWM-Kanal;Status;Wert}
+- Status: 0=Aus, 1=Ein
+- Wert: 0-4095
+Beispiel: {PWM;0;0x50;0;1;2048}
+```
+
+**RGBW-Modul:**
+```
+{RGBW;Kanal;Adresse;RGBW-Kanal;StatusRGB;StatusW;R;G;B;W}
+- Status: 0=Aus, 1=Ein
+- R/G/B/W: 0-4095
+Beispiel: {RGBW;0;0x58;0;1;1;4095;0;0;4095}
+```
+
+**Analog-Modul:**
+```
+{SAM;Kanal;Adresse;Analog-Kanal;Resolution;Amplifier}
+Beispiel: {SAM;0;0x69;0;3;0}
+```
+
+### RTC (Real-Time Clock)
+
+**RTC lesen:**
+```
+{RRTC}
+Antwort: {RRTC;TT;MM;JJJJ;HH;MM;SS;Temp;OK}
+```
+
+**RTC setzen:**
+```
+{SRTC;TT;MM;JJJJ;HH;MM;SS}
+Beispiel: {SRTC;22;10;2025;14;30;00}
+```
+
+### OneWire-Befehle
+
+**OneWire-Suche:**
+```
+{OWS}
+Antwort: {OWS;Device-ID} (mehrfach)
+         {OWS;END}
+```
+
+**OneWire-Wert lesen:**
+```
+{OWV;Device-ID}
+Beispiel: {OWV;28-610119138fdf1b}
+Antwort:  {OWV;28-610119138fdf1b;23.568;OK}
+```
+
+**OneWire-Konfiguration:**
+```
+{OWC;Device-ID;Wert}
+Beispiel: {OWC;28-610119138fdf1b;127}
+Antwort:  {OWC;28-610119138fdf1b;127;OK}
+```
+
+## Modulerkennung (MOD-Antworten)
+
+```
+{MOD;Kanal;Adresse;Typ}
+```
+
+| Antwort | Beschreibung |
+|---------|-------------|
+| `{MOD;0;0x24;OUT}` | 16-Bit Output-Modul (MCP23017) |
+| `{MOD;0;0x20;IN}` | 16-Bit Input-Modul (MCP23017) |
+| `{MOD;0;0x50;PWM}` | PWM-Modul (PCA9685) |
+| `{MOD;0;0x58;RGBW}` | RGBW-Modul (PCA9685) |
+| `{MOD;0;0x68;ANA}` | Analog-Modul (MCP3424) |
+| `{MOD;0;0x05;UNB}` | Unbekanntes I2C-Gerät |
+| `{MOD;0;0;END}` | Suche beendet |
+
+## OneWire-Geräte
+
+### Unterstützte Geräte
+
+| Family Code | Gerät | Beispiel-ID |
+|-------------|-------|-------------|
+| `28` | DS18B20 | `{OWS;28-610119138fdf1b}` |
+| `10` | DS18S20 | `{OWS;10-460008037049d3}` |
+| `3a` | DS2413 | `{OWS;3a-1d000000455f51}` |
+| `3b` | MAX31850 | `{OWS;3b-910cfc09590677}` |
+
+### OneWire-Konfiguration (OWC)
+
+**DS18B20 (Family Code 28) - Auflösung:**
+- `31` → 9 Bit
+- `63` → 10 Bit
+- `95` → 11 Bit
+- `127` → 12 Bit (Standard)
+
+```
+{OWC;28-610119138fdf1b;127}
+```
+
+**DS2413 (Family Code 3a) - Ausgänge:**
+- `0` → IOA+IOB = LOW
+- `1` → IOA = HIGH, IOB = LOW
+- `2` → IOA = LOW, IOB = HIGH
+- `3` → IOA+IOB = HIGH
+
+```
+{OWC;3a-1d000000455f51;3}
+```
 
 ## Download und Einrichten:<br>
 Download des git Verzeichnisses:<br>

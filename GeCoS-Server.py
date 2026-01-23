@@ -1,154 +1,68 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # encoding=utf-8
+"""
+GeCoS-Server
+Steuert I2C-basierte Ein-/Ausgangsmodule über TCP/IP
+"""
+
 import smbus
 import time
 import sys
-import datetime
+import logging
 from datetime import datetime
 import socket
-import _thread
+import threading
 import configparser
 import os
 import argparse
-import numpy as np
+from typing import Optional, List
+from Mux import multiplex
 
-#import RPi.GPIO as GPIO
+# Logging konfigurieren
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(asctime)s.%(msecs)03d %(levelname)s: %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
-#Status Variable 16IN 1x pro Bus mit 8 Werten
-statIN0 = [0,0,0,0,0,0,0,0]
-statIN1 = [0,0,0,0,0,0,0,0]
-statIN2 = [0,0,0,0,0,0,0,0]
+# Status Variable 16IN 1x pro Bus mit 8 Werten
+stat_in = {
+    0: [0] * 8,
+    1: [0] * 8,
+    2: [0] * 8
+}
 
-#Globale Variablen
-printDebug=False
-statusOW=1
-clSocket = ""
-clIP = ""
-aIN0 = []
-aIN1 = []
-aIN2 = []
-aOut0= []
-aOut1= []
-aOut2= []
-aPWM0= []
-aPWM1= []
-aPWM2= []
-aRGBW0= []
-aRGBW1= []
-aRGBW2= []
-aANA0= []
-aANA1= []
-aANA2= []
-dmxStop=True
-I2CAdrDS2482= 0x18 #Adresse DS2482
+# Globale Variablen
+print_debug = False
+status_ow = 1
+cl_socket: Optional[socket.socket] = None
+cl_ip = ""
 
-#MUX:
-class multiplex:
-    statusI2C = 1
-    def __init__(self, bus):
-        self.bus = smbus.SMBus(bus)
+# Module-Arrays pro Kanal
+modules = {
+    'in': {0: [], 1: [], 2: []},
+    'out': {0: [], 1: [], 2: []},
+    'pwm': {0: [], 1: [], 2: []},
+    'rgbw': {0: [], 1: [], 2: []},
+    'ana': {0: [], 1: [], 2: []}
+}
 
-    def _check_i2c(self):
-        iCnt=0
-        while True:
-            if self.statusI2C==1:
-                return True
-            else:
-                iCnt+=1
-                if iCnt >= 150:
-                    log("I2C Status: {0}".format(str(self.statusI2C)),"ERROR")
-                if iCnt>= 500:
-                    log("I2C Status Abbruch: {0}".format(str(self.statusI2C)),"ERROR")
-                    self.statusI2C=1
-                    return False
-                time.sleep(0.001)
-        return False
+I2C_ADR_DS2482 = 0x18  # Adresse DS2482
 
-    def channel(self, address=0x71,channel=0):  # values 0-3 indictae the channel, anything else (eg -1) turns off all channels
-        
-        if   (channel==0): action = 0x04
-        elif (channel==1): action = 0x05
-        elif (channel==2): action = 0x06
-        elif (channel==3): action = 0x07
-        else : action = 0x00
-        self.bus.write_byte_data(address,0x04,action)  #0x04 is the register for switching channels
-
-    def writeByteData(self, kanal, address, register, wert):
-        if (self._check_i2c()==True):
-            self.statusI2C=0
-            self.channel(mux,kanal)
-            time.sleep(0.001)
-            try:
-                self.bus.write_byte_data(address,register,wert)
-            except:
-                self.statusI2C=1
-                return False
-            self.statusI2C=1
-        else:
-            return False
-        return True
-
-    #read_byte_data(addr)
-    def readByte(self, kanal, address):
-        if (self._check_i2c()==True):
-            self.statusI2C=0
-            self.channel(mux,kanal)
-            try:
-                wert=self.bus.read_byte(address)
-            except:
-                self.statusI2C=1
-                return None
-            self.statusI2C=1
-        else:
-            return None
-        return wert
-
-    #read_byte_data(addr, register)
-    def readByteData(self, kanal, address, register):
-        if (self._check_i2c()==True):
-            self.statusI2C=0
-            try:
-                self.channel(mux,kanal)
-                wert=self.bus.read_byte_data(address,register)
-            except:
-                #zweiter versuch um selten auftretende "Remote I/O Error abzufangen"
-                self.channel(mux,kanal)
-                wert=self.bus.read_byte_data(address,register)
-            self.statusI2C=1
-        else:
-            return None
-        return wert
-
-    #erg=plexer.bus.read_i2c_block_data(adresse,bconfig,4)
-    def readBlockData(self, kanal, address,register,cnt):
-        if (self._check_i2c()==True):
-            self.statusI2C=0
-            self.channel(mux,kanal)
-            wert=self.bus.read_i2c_block_data(address,register,cnt)
-            self.statusI2C=1
-        else:
-            wert=[0x00,0x00,0x00,0x00]
-        return wert
-
-    #plexer.bus.write_byte(adresse,bconfig)
-    def writeByte(self,kanal,address,register):
-        if (self._check_i2c()==True):
-            self.statusI2C=0
-            self.channel(mux,kanal)
-            self.bus.write_byte(address,register)
-            self.statusI2C=1
-        else:
-            return False
-        return True
-
-
-#DS2482:
+# DS2482 - OneWire-Bridge-Klasse
 class DS2482:
-    #global owDeviceAddress = [[0,0], [0,0]]#; //These are each 32 bits long.
-
+    """
+    DS2482 OneWire-zu-I2C-Bridge Klasse
+    
+    Ermöglicht die Kommunikation mit OneWire-Geräten über I2C
+    """
+    
+    I2C_ADDR = I2C_ADR_DS2482
+    
     def __init__(self):
         self._bus = smbus.SMBus(bus)
-        self._owDeviceAddress = [0,0]
+        self._owDeviceAddress = [0, 0]
         self._owTripletDirection = 1
         self._owTripletFirstBit = 0
         self._owTripletSecondBit = 0
@@ -156,39 +70,36 @@ class DS2482:
         self._owLastDiscrepancy = 0
 
     def OWSearchBus(self):
-        global I2CAdrDS2482
+        """Sucht alle OneWire-Geräte auf dem Bus"""
         try:
-            while self.OWSearch()==1:
+            while self.OWSearch() == 1:
             #if (self.OWSearch()):
                 device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
                 befehl="{OWS;"
                 befehl +="{0}".format(device)
                 befehl+="}"
-                sendUDP(befehl)
-                log("Gerät gefunden: " + str(device), "INFO")
+                send_tcp(befehl)
+                log("Gerät gefanden: " + str(device), "INFO")
             befehl="{OWS;END}"
-            sendUDP(befehl)
-        except:
+            send_tcp(befehl)
+        except Exception as e:
             befehl="{OWS;Fehler}"
-            sendUDP(befehl)
-            log("Fehler bei OWS Suche", "ERROR")
-
+            send_tcp(befehl)
+            log(f"Fehler bei OWS Suche: {e}", "ERROR")
 
     def DS2482Reset(self):
-        global I2CAdrDS2482
-        self._bus.write_byte(I2CAdrDS2482, 0xF0) #reset DS2482
-
+        """Setzt den DS2482 zurück"""
+        self._bus.write_byte(self.I2C_ADDR, 0xF0)
 
     def OWStatusRegister(self):
-        global I2CAdrDS2482
-        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
-        e=self._bus.read_byte(I2CAdrDS2482)
+        """Liest das Status-Register"""
+        self._bus.write_byte_data(self.I2C_ADDR, 0xE1, 0xF0)
+        e = self._bus.read_byte(self.I2C_ADDR)
         return e
 
-
     def OWReset(self):
-        global I2CAdrDS2482
-        self._bus.write_byte(I2CAdrDS2482,0xB4) #1Wire Reset
+        """Setzt den OneWire-Bus zurück"""
+        self._bus.write_byte(self.I2C_ADDR, 0xB4)  # 1Wire Reset
         loopcount=0
         data=""    
         while (True):
@@ -216,8 +127,7 @@ class DS2482:
 
 
     def OWWriteByte(self,byte):
-        global I2CAdrDS2482    
-        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
+        self._bus.write_byte_data(self.I2C_ADDR,0xE1,0xF0)
         loopcount=0
         while (True):
             loopcount+=1
@@ -233,7 +143,7 @@ class DS2482:
                     time.sleep(0.001)
                 else:
                     break
-        self._bus.write_byte_data(I2CAdrDS2482,0xA5, byte)
+        self._bus.write_byte_data(self.I2C_ADDR,0xA5, byte)
         loopcount=0
         while (True):
             data=self.OWStatusRegister()
@@ -252,8 +162,7 @@ class DS2482:
 
 
     def OWReadByte(self):
-        global I2CAdrDS2482
-        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xF0)
+        self._bus.write_byte_data(self.I2C_ADDR,0xE1,0xF0)
         loopcount=0
         while (True):
             loopcount+=1
@@ -269,7 +178,7 @@ class DS2482:
                     time.sleep(0.001)
                 else:
                     break
-        self._bus.write_byte(I2CAdrDS2482,0x96)
+        self._bus.write_byte(self.I2C_ADDR,0x96)
         loopcount=0
         while (True):
             loopcount+=1
@@ -285,8 +194,8 @@ class DS2482:
                     time.sleep(0.001)
                 else:
                     break
-        self._bus.write_byte_data(I2CAdrDS2482,0xE1,0xE1)
-        data=self._bus.read_byte(I2CAdrDS2482)
+        self._bus.write_byte_data(self.I2C_ADDR,0xE1,0xE1)
+        data=self._bus.read_byte(self.I2C_ADDR)
         if(data is None):
                 #Fehler
                 return -1
@@ -297,10 +206,9 @@ class DS2482:
 
     
     def OWTriplet(self):
-        global I2CAdrDS2482
         if (self._owTripletDirection > 0):
             self._owTripletDirection = 0xFF
-        self._bus.write_byte_data(I2CAdrDS2482, 0x78,self._owTripletDirection)
+        self._bus.write_byte_data(self.I2C_ADDR, 0x78,self._owTripletDirection)
         loopcount = 0
         while (True):
             loopcount+=1
@@ -329,7 +237,6 @@ class DS2482:
 
     def OWSearch(self):
         #global owDeviceAddress
-        global I2CAdrDS2482
         self._bitNumber=1
         self._lastZero=0
         self._deviceAddress4ByteIndex=1 #Fill last 4 bytes first, data from onewire comes LSB first.
@@ -395,7 +302,6 @@ class DS2482:
 
 
     def OWCheckCRC(self):
-        global I2CAdrDS2482
         crc = 0
         da32bit= self._owDeviceAddress[1]
         for j in range(0,4):
@@ -441,8 +347,8 @@ class DS2482:
             self._owDeviceAddress[1] = tmp & 0xFFFFFFFF
             self._owDeviceAddress[0] = tmp >> 32
             return True
-        except:
-            log("Fehler beim OneWire Adresse einstellen")
+        except (ValueError, IndexError) as e:
+            log(f"Fehler beim OneWire Adresse einstellen: {e}", "ERROR")
             return False
 
     def DS2413OWSetConfig(self,data):
@@ -453,9 +359,9 @@ class DS2482:
             data = ~data&0xFF
             self.OWWriteByte(data)
             return True
-        except:
+        except Exception as e:
+            log(f"Fehler beim DS2413 Config setzen: {e}", "ERROR")
             return False
-        return True
 
     def DS18B20OWSetConfig(self,res):
         try:
@@ -466,9 +372,9 @@ class DS2482:
             self.OWWriteByte(0)
             self.OWWriteByte(res)
             return True
-        except:
+        except Exception as e:
+            log(f"Fehler beim DS18B20 Config setzen: {e}", "ERROR")
             return False
-        return True
         
 
     def DS18B20OWReadTemp(self):
@@ -517,24 +423,24 @@ class DS2482:
                 celsius = celsius * (-1)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
-        except:
+        except Exception as e:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+            log(f"Fehler 1Wire DS18B20 {device}: {e}","ERROR")
         finally:
             return celsius
 
     def DS2413GetState(self):
         try:
-            if ((self._owDeviceAddress[1]& 0xFF) == 0x3a): #Ist ein DS18B20
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x3a): #Ist ein DS2413
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0xF5) #Starte Messung
                     result = self.OWReadByte()
-        except:
+        except Exception as e:
             result=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+            log(f"Fehler 1Wire DS2413 {device}: {e}","ERROR")
         finally:
             return result
 
@@ -568,10 +474,10 @@ class DS2482:
             celsius= raw * 0.0625
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
-        except:
+        except Exception as e:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+            log(f"Fehler 1Wire MAX31850 {device}: {e}","ERROR")
         finally:
             return celsius
 
@@ -579,7 +485,7 @@ class DS2482:
 
     def DS18S20OWReadTemp(self):
         try:
-            if ((self._owDeviceAddress[1]& 0xFF) == 0x10): #Ist ein DS18B20
+            if ((self._owDeviceAddress[1]& 0xFF) == 0x10): #Ist ein DS18S20
                 if (self.OWReset()):
                     self.OWSelect()
                     self.OWWriteByte(0x44) # Starte Messung
@@ -603,59 +509,12 @@ class DS2482:
                 celsius = celsius * (-1)
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
             #log("Device: " + str(device) + " Temp: " + str(celsius),"INFO")
-        except:
+        except Exception as e:
             celsius=-85
             device=hex(self._owDeviceAddress[1]& 0xFF)[2:4] + "-" + hex(self._owDeviceAddress[0]<<32 | (self._owDeviceAddress[1]))[2:16]
-            log("Fehler 1Wire: {0}".format(str(device)),"ERROR")
+            log(f"Fehler 1Wire DS18S20 {device}: {e}","ERROR")
         finally:
             return celsius
-
-
-class PyDMX:
-    def __init__(self,COM='/dev/ttyAMA0',Brate=250000,Bsize=8,StopB=2):
-        import serial
-        #start serial
-        self.ser = serial.Serial(COM,baudrate=Brate,bytesize=Bsize,stopbits=StopB)
-        self.data = np.zeros([513],dtype='uint8')
-#        self.data =[chr(0)]*513
-        self.data[0] = 0 # StartCode
-        self.sleepms = 250.0
-        self.breakus = 176.0
-        self.MABus = 16.0
-        
-
-    def set_data(self,id,data):
-        self.data[id]=data
-    
-    def get_data(self,id):
-        return self.data[id]
-
-    def send(self):
-        # Send Break : 88us - 1s
-        self.ser.break_condition = True
-        time.sleep(self.breakus/1000000.0)
-        
-        # Send MAB : 8us - 1s
-        self.ser.break_condition = False
-        time.sleep(self.MABus/1000000.0)
-        
-        # Send Data
-       # print(bytearray(self.data))
-        self.ser.write(bytearray(self.data))
-#        sdata="".join(str(v) for v in self.data)
-#        self.ser.write(sdata.encode('ASCII'))
-#        print(sdata)
-        # Sleep
-        time.sleep(self.sleepms/1000.0) # between 0 - 1 sec
-
-    def sendzero(self):
-        self.data = [chr(0)]*513
-        self.send()
-
-    def __del__(self):
-        self.sendzero()
-        self.ser.close()
-
 
 
 #RTC:
@@ -837,16 +696,22 @@ def configSchreiben(bereich,wert1, wert2):
         config.write(configfile)
         configfile.close
 
-def _check_OW():
-    global statusOW
-    iCnt=0
+def _check_OW() -> bool:
+    """
+    Prüft den OneWire-Bus-Status mit Timeout
+    
+    Returns:
+        bool: True wenn verfügbar, sonst False
+    """
+    global status_ow
+    i_cnt = 0
     while True:
-        if statusOW==1:
+        if status_ow == 1:
             return True
         else:
-            iCnt+=1
-            if iCnt>= 10000:
-                log("OW Status: {0}".format(str(statusOW)),"ERROR")
+            i_cnt += 1
+            if i_cnt >= 10000:
+                log(f"OW Status: {status_ow}", "ERROR")
                 return False
             time.sleep(0.001)
     return False
@@ -864,8 +729,8 @@ def set_output_konfig(kanal,adresse):
         plexer.writeByteData(kanal,adresse,bankAKonfig,outputKonfig)
         plexer.writeByteData(kanal,adresse,bankBKonfig,outputKonfig)   
         log("Adresse: " +str(hex(adresse)) + " - Port A + B als Output gesetzt")
-    except:
-        log("Fehler beim Output konfigurieren","ERROR")
+    except Exception as e:
+        log(f"Fehler beim Output konfigurieren (Kanal {kanal}, Addr {hex(adresse)}): {e}","ERROR")
 
 def set_pwm_konfig(kanal, adresse):
     if adresse <0x50 or adresse > 0x5f:
@@ -887,8 +752,8 @@ def set_pwm_konfig(kanal, adresse):
         plexer.writeByteData(kanal,adresse,0x00,0x20)
         #mode2 = Ausgang Register 1  Wert = 4
         plexer.writeByteData(kanal,adresse,0x01,0x04)        
-    except:
-        log("Fehler beim PWM konfigurieren","ERROR")
+    except Exception as e:
+        log(f"Fehler beim PWM konfigurieren (Kanal {kanal}, Addr {hex(adresse)}): {e}","ERROR")
     
 def set_input_konfig(kanal,adresse):
     if adresse <0x20 or adresse > 0x23:
@@ -898,7 +763,7 @@ def set_input_konfig(kanal,adresse):
     if kanal <0 or kanal > 3:
         log("Kanal ungueltig","ERROR")
         return
-    #Konfiguration als Ausgangsmodul:
+    #Konfiguration als Eingangsmodul:
     try:
         plexer.writeByteData(kanal,adresse,bankAKonfig,inputKonfig)
         plexer.writeByteData(kanal,adresse,bankBKonfig,inputKonfig)
@@ -915,350 +780,255 @@ def set_input_konfig(kanal,adresse):
         plexer.writeByteData(kanal,adresse,GPINTENA,0xFF)
         plexer.writeByteData(kanal,adresse,GPINTENB,0xFF)
         log("Adresse:{0} - Port A + B als Input gesetzt".format(hex(adresse)),"INFO")
-    except:
-        log("Fehler beim Input konfigurieren","ERROR")
+    except Exception as e:
+        log(f"Fehler beim Input konfigurieren (Kanal {kanal}, Addr {hex(adresse)}): {e}","ERROR")
 
-def dmxThread(dmx):
-    #DMX Thread, senden min alle 1s, sonst fehler auf DMX Bus.
-    global dmxStop
-    while True:
-        dmx.send()
-        time.sleep(0.5)
-        if (dmxStop==True):
-            break
+ 
 
-def thread_DMXStart():
-    global dmx
+
+def send_tcp(data: str) -> None:
+    """
+    Sendet Daten über TCP-Socket
+    
+    Args:
+        data: Zu sendende Nachricht als String
+    """
+    global cl_socket
+    global cl_ip
     try:
-        dmx
-    except NameError:
-        dmx=PyDMX('/dev/ttyS0')
-    _thread.start_new_thread(dmxThread,(dmx,))
-
-
-def dmxBefehl(arr):
-    global dmxStop
-    dmxBefehl=arr[1]
-    befehl="{{DMX;{0}".format(dmxBefehl)
-    if (dmxBefehl=="Stop"):
-        dmxStop=True
-        status="OK"
-    elif (dmxBefehl=="Start"):
-        dmxStop=False
-        thread_DMXStart()
-        status="OK"
-    elif (dmxBefehl=="Status"):
-        #Status senden: dmxStop
-        if (dmxStop == False):
-            status="Aktiv" 
+        if cl_socket and hasattr(cl_socket, 'send'):
+            res = cl_socket.send(data.encode())
         else:
-            status ="Inaktiv"
-    else:
-        status ="ERROR"    
-
-    befehl +=";{0}}}".format(status)
-    sendUDP(befehl)
-
-def dmxSetKanal(arr):
-    global dmx
-    #Array= {Befehl,Kanal,Laenge, Werte()}
-    global dmxStop
-    dmxKanal=int(arr[1])
-    dmxLaenge=int(arr[2])
-    befehl="{{DMXSR;{0};{1};{2}".format(arr[0],arr[1],arr[2])
-    if dmxKanal <1 or dmxKanal+dmxLaenge > 513:
-        log("dmx Kanal ungueltig: {0}".format(dmxKanal))
-        befehl="{"
-        befehl+="DMXSR;{0};{1};{2};".format(arr[0],dmxKanal,dmxLaenge)
-        for kanal in range(dmxLaenge):
-            befehl+=arr[3+kanal]+";"
-        befehl+="DMX Kanal ungueltig}"
-        sendUDP(befehl) 
-        return
-    if (dmxStop == True):
-        log("dmx inaktiv: {0}".format(dmxKanal))
-        befehl="{"
-        befehl+="DMXSR;{0};{1};{2};".format(arr[0],dmxKanal,dmxLaenge)
-        for kanal in range(dmxLaenge):
-            befehl+=arr[3+kanal]+";"
-        befehl+="DMX inaktiv}"
-        sendUDP(befehl) 
-        return
-
-    for kanal in range(dmxLaenge):
-        dmx.set_data(dmxKanal+kanal,int(arr[3+kanal]))
-        status ="OK"    
-
-    befehl="{"
-    befehl+="DMXSR;{0};{1};".format(dmxKanal,dmxLaenge)
-    for kanal in range(dmxLaenge):
-        befehl+=arr[3+kanal]+";"
-    befehl+=status
-    befehl+="}"
-    sendUDP(befehl)
-
-def dmxGetKanal(arr):
-    #Array= {Befehl,Kanal,Laenge, Werte()}
-    dmxKanal=int(arr[1])
-    dmxLaenge=int(arr[2])
-    befehl="{{{0};{1};{2}".format(arr[0],arr[1],arr[2])
-    if dmxKanal <1 or dmxKanal+dmxLaenge > 513:
-        log("dmx Kanal ungueltig: {0}".format(dmxKanal))
-        befehl="{"
-        befehl+="DMXIR;{0};{1};".format(dmxKanal,dmxLaenge)
-        for kanal in range(dmxLaenge):
-            befehl+=arr[3+kanal]+";"
-        befehl+="DMX Kanal ungueltig}"
-        sendUDP(befehl) 
-        return
-    log(befehl)
-    for kanal in range(dmxLaenge):
-        befehl+=";"+str(dmx.get_data(dmxKanal+kanal))
-        status="OK"
-    befehl+=";"+status
-    befehl+="}"
-    sendUDP(befehl) 
-
-
-def sendUDP(data):
-    #Daten Senden
-    global clSocket
-    global clIP
-    try:
-        if hasattr(clSocket, 'send'):
-            res=clSocket.send(data.encode())
-        else:
-            log("UDP-Nicht verbunden: {0}".format(data),"ERROR")
+            log(f"TCP-Nicht verbunden: {data}", "ERROR")
             return None            
     except IOError as err:
-        log("UDP-Fehler:{0} ; {1}".format(str(err),data),"ERROR")
-    #Daten pruefen:
-    if (int(res)==int(data.encode().__len__())):
-        log("UDP-Gesendet: {0} : {1}".format(clIP,data))
+        log(f"TCP-Fehler: {err} ; {data}", "ERROR")
+        return
+    
+    # Daten prüfen:
+    if int(res) == len(data.encode()):
+        log(f"TCP-Gesendet: {cl_ip} : {data}")
     else:
-        log("UDP-Fehler. Gesendet: {0} Empfangen: {1}".format(data.__len__(),res),"ERROR")
-        log("UDP-Fehlerdaten: {0}".format(data),"ERROR")
+        log(f"TCP-Fehler. Gesendet: {len(data)} Empfangen: {res}", "ERROR")
+        log(f"TCP-Fehlerdaten: {data}", "ERROR")
 
-def getUDP():
-    global clSocket
-    global clIP
-    conClosed=False
-    tcpSocket=socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Internet, UDP
-    tcpSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
-    tcpSocket.bind(("0.0.0.0",miniServerPort))
-    tcpSocket.listen(5)
-    (clSocket, clIP) = tcpSocket.accept()
-    log("Verbunden: {0}".format(clIP))
+def handle_tcp_connection() -> None:
+    """
+    Verwaltet TCP-Verbindungen und verarbeitet eingehende Befehle
+    """
+    global cl_socket
+    global cl_ip
+    con_closed = False
+    tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp_socket.bind(("0.0.0.0", miniServerPort))
+    tcp_socket.listen(5)
+    (cl_socket, (cl_ip, _)) = tcp_socket.accept()
+    log(f"Verbunden: {cl_ip}")
     while True:
-        #log("Get UDP")
-        GeCoSInData=""
-        data=""
-        arr=""
-        while data[-1:]!="}":
+        gecos_in_data = ""
+        data = ""
+        arr = ""
+        while data[-1:] != "}":
             try:
                 #Testen ob noch verbunden? 
-                blk=clSocket.recv(1).decode("utf-8")
-                if len(blk)==0:
-                    conClosed=True
+                blk = cl_socket.recv(1).decode("utf-8")
+                if len(blk) == 0:
+                    con_closed = True
                     break 
-            except:
-                log("Fehler beim Empfangen","ERROR")
-            data+=blk
-        log("Empfangen: {0} : {1}".format(clIP,data))
-        GeCoSInData=data[:-1]
+            except Exception as e:
+                log(f"Fehler beim Empfangen: {e}", "ERROR")
+            data += blk
+        log(f"Empfangen: {cl_ip} : {data}")
+        gecos_in_data = data[:-1]
         data = ""
-        if len(GeCoSInData)>0:
-            if GeCoSInData[0]=="{":
-                GeCoSInData=GeCoSInData.replace("{","")
-                if GeCoSInData=="MOD":
+        if len(gecos_in_data) > 0:
+            if gecos_in_data[0] == "{":
+                gecos_in_data = gecos_in_data.replace("{", "")
+                if gecos_in_data == "MOD":
                     modulSuche()
-                if GeCoSInData=="OWS":
+                if gecos_in_data == "OWS":
                     thread_OW_Search()
-                elif GeCoSInData=="SAI":
+                elif gecos_in_data == "SAI":
                     interrutpKanal(intKanal0)
                     interrutpKanal(intKanal1)
                     interrutpKanal(intKanal2)
-                elif GeCoSInData=="SPWM":
+                elif gecos_in_data == "SPWM":
                     pwmAll()
-                elif GeCoSInData=="SRGBW":
+                elif gecos_in_data == "SRGBW":
                     rgbwAll()
-                elif GeCoSInData=="SAO":
+                elif gecos_in_data == "SAO":
                     ReadOutAll()
-                elif GeCoSInData=="RRTC":
+                elif gecos_in_data == "RRTC":
                     read_rtc()
                     #RTC lesen
-                elif len(GeCoSInData)>=7: #13
-                    arr=GeCoSInData.split(";")
-                    if arr[0]=="SOM":
+                elif len(gecos_in_data) >= 7:
+                    arr = gecos_in_data.split(";")
+                    if arr[0] == "SOM":
                         set_output(arr)
-                    elif arr[0]=="PWM":
+                    elif arr[0] == "PWM":
                         set_pwm(arr)
-                    elif arr[0]=="RGBW":
+                    elif arr[0] == "RGBW":
                         set_rgbw(arr)
-                    elif arr[0]=="SAM":
+                    elif arr[0] == "SAM":
                         read_analog(arr)
-                    elif arr[0]=="OWV":
+                    elif arr[0] == "OWV":
                         thread_OW_read(arr)
-                    elif arr[0]=="OWC":
+                    elif arr[0] == "OWC":
                         thread_OW_config(arr)
-                    elif arr[0]=="SRTC":
+                    elif arr[0] == "SRTC":
                         #RTC Setzen
                         set_rtc(arr)
-                    elif arr[0]=="DMX":
-                        #DMX Befehl:
-                        dmxBefehl(arr)
-                    elif arr[0]=="DMXSR":
-                        #DMX Kanal Range setzen:
-                        dmxSetKanal(arr)
-                    elif arr[0]=="DMXIR":
-                        #DMX Kanal Range:
-                        dmxGetKanal(arr)
                     else:
-                        GeCoSInData.replace("{","")
-                        GeCoSInData.replace("}","")
-                        sendUDP("{0}ERR;{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
-                        log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
+                        gecos_in_data = gecos_in_data.replace("{", "").replace("}", "")
+                        send_tcp(f"{{ERR;{gecos_in_data};Befehl nicht erkannt}}")
+                        log(f"Befehl nicht erkannt: {gecos_in_data}", "ERROR")
             else:
-                GeCoSInData.replace("{","")
-                GeCoSInData.replace("}","")
-                sendUDP("{0}ERR;{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
-                log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
+                gecos_in_data = gecos_in_data.replace("{", "").replace("}", "")
+                send_tcp(f"{{ERR;{gecos_in_data};Befehl nicht erkannt}}")
+                log(f"Befehl nicht erkannt: {gecos_in_data}", "ERROR")
         else:
-            arr=""
+            arr = ""
             #Verbindung unterbrochen, Neue Verbindung akzeptieren:
-            if conClosed==True:
-                log("Verbindung getrennt!","ERROR")
+            if con_closed == True:
+                log("Verbindung getrennt!", "ERROR")
                 try:
-                    tcpSocket.close()
-                except:
-                    log("Fehler beim Socket schliessen","ERROR")
-                thread_gecosOut()
+                    tcp_socket.close()
+                except Exception as e:
+                    log(f"Fehler beim Socket schliessen: {e}", "ERROR")
+                thread_tcp_server()
                 break
             else:
-                sendUDP("{0}{1}Befehl nicht erkannt{2}".format("{",GeCoSInData,"}"))
-                log("Befehl nicht erkannt: {0}".format(GeCoSInData),"ERROR")
+                send_tcp(f"{{{gecos_in_data};Befehl nicht erkannt}}")
+                log(f"Befehl nicht erkannt: {gecos_in_data}", "ERROR")
 
 def OWReadDevice(arr):
-    global statusOW
+    """Liest Daten von OneWire-Geräten"""
+    global status_ow
     x = arr[1].split("-")
-    befehl="{OWV;"
+    befehl = "{OWV;"
+    
     if x[0] == "28":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
-                temp=dsOW.DS18B20OWReadTemp()               
-                status ="{0};{1}".format(str(temp),"OK")
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
+                temp = dsOW.DS18B20OWReadTemp()               
+                status = f"{temp};OK"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
+                log("Fehler beim Adresse einstellen", "INFO")
                 status = "-85;Fehler bei Adresse einstellen"
-            statusOW=1
+            status_ow = 1
         else:
             status = "-85;Fehler OW Bus belegt"
     elif x[0] == "10":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
-                temp=dsOW.DS18S20OWReadTemp()
-                status ="{0};{1}".format(str(temp),"OK")
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
+                temp = dsOW.DS18S20OWReadTemp()
+                status = f"{temp};OK"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
+                log("Fehler beim Adresse einstellen", "INFO")
                 status = "-85;Fehler bei Adresse einstellen"
-            statusOW=1
+            status_ow = 1
         else:
             status = "-85;Fehler OW Bus belegt"
     elif x[0] == "3a":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
-                result=dsOW.DS2413GetState()
-                status ="{0};{1}".format(str(result),"OK")
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
+                result = dsOW.DS2413GetState()
+                status = f"{result};OK"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
+                log("Fehler beim Adresse einstellen", "INFO")
                 status = "-85;Fehler bei Adresse einstellen"
-            statusOW=1
+            status_ow = 1
         else:
             status = "-85;Fehler OW Bus belegt"
     elif x[0] == "3b":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
-                result=dsOW.MAX31850OWReadTemp()
-                status ="{0};{1}".format(str(result),"OK")
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
+                result = dsOW.MAX31850OWReadTemp()
+                status = f"{result};OK"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
+                log("Fehler beim Adresse einstellen", "INFO")
                 status = "-85;Fehler bei Adresse einstellen"
-            statusOW=1
+            status_ow = 1
         else:
             status = "-85;Fehler OW Bus belegt"            
     else:
-        log("OneWire Typ nicht unterstützt","INFO")
-        status="-85;Typ nicht untersützt}"
+        log("OneWire Typ nicht unterstützt", "INFO")
+        status = "-85;Typ nicht untersützt"
     
-    befehl +="{0};{1}}}".format(arr[1],status)
-    sendUDP(befehl)
+    befehl += f"{arr[1]};{status}}}"
+    send_tcp(befehl)
   
 def OWConfigDevice(arr):
-    global statusOW
+    """Konfiguriert OneWire-Geräte"""
+    global status_ow
     x = arr[1].split("-")
-    befehl="{OWC;"
-    status=""
+    befehl = "{OWC;"
+    status = ""
+    
     if x[0] == "28":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
                 if dsOW.DS18B20OWSetConfig(int(arr[2])) == True:
-                    status="{0};{1}".format(str(arr[2]),"OK")
+                    status = f"{arr[2]};OK"
                 else:
-                    status="FEHLER}"
+                    status = "FEHLER"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
-                status="Fehlerhafte OW Adresse}"
-            statusOW=1
+                log("Fehler beim Adresse einstellen", "INFO")
+                status = "Fehlerhafte OW Adresse"
+            status_ow = 1
         else:
-            status="Fehler OW Bus belegt"
+            status = "Fehler OW Bus belegt"
     elif x[0] == "3a":
         if _check_OW():
-            statusOW=0
-            if dsOW.OWSelectAdress(arr[1])==True:
+            status_ow = 0
+            if dsOW.OWSelectAdress(arr[1]) == True:
                 if dsOW.DS2413OWSetConfig(int(arr[2])) == True:
-                    status="{0};{1}".format(str(arr[2]),"OK")
+                    status = f"{arr[2]};OK"
                 else:
-                    status="FEHLER}"
+                    status = "FEHLER"
             else:      
-                log("Fehler beim Adresse einstellen","INFO")
-                status="Fehlerhafte OW Adresse}"
-            statusOW=1
+                log("Fehler beim Adresse einstellen", "INFO")
+                status = "Fehlerhafte OW Adresse"
+            status_ow = 1
         else:
-            status="Fehler OW Bus belegt"            
+            status = "Fehler OW Bus belegt"            
     else:
-        log("OneWire Typ nicht unterstützt","INFO")
-        status="Typ nicht untersützt}"
-    befehl +="{0};{1}}}".format(arr[1],status)
-    sendUDP(befehl)
+        log("OneWire Typ nicht unterstützt", "INFO")
+        status = "Typ nicht untersützt"
+    
+    befehl += f"{arr[1]};{status}}}"
+    send_tcp(befehl)
 
 def OWSearchDevice():
-    global statusOW
+    """Sucht nach OneWire-Geräten auf dem Bus"""
+    global status_ow
     if _check_OW():
-        statusOW=0
+        status_ow = 0
         dsOW.OWSearchBus()
-        statusOW=1
+        status_ow = 1
     else:
-        log("OneWire Bus Belegt","INFO")
+        log("OneWire Bus Belegt", "INFO")
 
-def thread_gecosOut():
-    _thread.start_new_thread(getUDP,())
+def thread_tcp_server():
+    threading.Thread(target=handle_tcp_connection, daemon=True).start()
 
 def thread_interrupt(pin):
-    _thread.start_new_thread(interrutpKanal,(pin,))
+    threading.Thread(target=interrutpKanal, args=(pin,), daemon=True).start()
 
 def thread_OW_read(arr):
-    _thread.start_new_thread(OWReadDevice,(arr,))
+    threading.Thread(target=OWReadDevice, args=(arr,), daemon=True).start()
 
 def thread_OW_config(arr):
-    _thread.start_new_thread(OWConfigDevice,(arr,))
+    threading.Thread(target=OWConfigDevice, args=(arr,), daemon=True).start()
 
 def thread_OW_Search():
-    _thread.start_new_thread(OWSearchDevice,())
+    threading.Thread(target=OWSearchDevice, daemon=True).start()
 
 def read_output(kanal,adresse):
     if adresse <0x24 or adresse > 0x27:
@@ -1266,7 +1036,7 @@ def read_output(kanal,adresse):
         sArr="{"
         sArr+="SAO;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
         
     if kanal <0 or kanal > 3:
@@ -1274,7 +1044,7 @@ def read_output(kanal,adresse):
         sArr="{"
         sArr+="SAO;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
 
     sArr="{"
@@ -1298,7 +1068,7 @@ def read_output(kanal,adresse):
             sStatus="Unkown Error"
         sStatus=sStatus.replace(";","")
         sArr+="{0}}}".format(sStatus)
-        sendUDP(sArr)
+        send_tcp(sArr)
 
 def set_output(arr):
     adresse=int(arr[2],16)
@@ -1308,7 +1078,7 @@ def set_output(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
         
     if kanal <0 or kanal > 3:
@@ -1316,7 +1086,7 @@ def set_output(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     try:
         #Bytes fuer Bank A + B auslesen
@@ -1345,19 +1115,28 @@ def set_output(arr):
         sStatus=sStatus.replace(";","")
         sArr+=";{0}}}".format(sStatus)
         sArr = sArr.replace(";;",";")
-        sendUDP(sArr)   
+        send_tcp(sArr)   
         
-def log(message, level="INFO"):
-    timestamp= datetime.now().strftime("%H:%M:%S.%f") #time.strftime("%d.%m.%Y %H:%M:%S.%f", time.localtime(time.time()))
-    if printDebug==True:
-        print("{0} {1}: {2}".format(timestamp, level, message))
-    if level=="ERROR":
-        file = open("/home/pi/logfile.log","a")
-        file.write("%s: %s\n" % (time.strftime("%d.%m.%Y %H:%M:%S"), message))
-        file.close
+def log(message: str, level: str = "INFO") -> None:
+    """
+    Logging-Funktion für GeCoS-Server
+    
+    Args:
+        message: Nachricht zum Loggen
+        level: Log-Level (INFO, WARNING, ERROR, DEBUG)
+    """
+    if level == "ERROR":
+        logger.error(message)
+    elif level == "WARNING":
+        logger.warning(message)
+    elif level == "DEBUG":
+        logger.debug(message)
+    else:
+        logger.info(message)
 
        
-def set_bit(v, index, x): #v=original wert, x= true oder false
+def set_bit(v: int, index: int, x: bool) -> int:
+    """Setzt ein einzelnes Bit auf 1/0 (True oder False)"""
     #Bit auf 1/0 setzen (True oder False)
     mask = 1<< index
     v&=~mask
@@ -1366,99 +1145,52 @@ def set_bit(v, index, x): #v=original wert, x= true oder false
     return v
     
 def ReadOutAll():
-    global aOut0
+    """Liest alle Output-Module auf allen Kanälen"""
     for kanal in range(3):
-        if kanal==0:
-            for device in aOut0:
-                try:
-                    read_output(kanal,device)
-                except:
-                    pass
-        if kanal==1:
-            for device in aOut1:
-                try:
-                    read_output(kanal,device)
-                except:
-                    pass
-        if kanal==2:
-            for device in aOut2:
-                try:
-                    read_output(kanal,device)
-                except:
-                    pass
+        for device in modules['out'][kanal]:
+            try:
+                read_output(kanal, device)
+            except Exception as e:
+                log(f"Fehler beim Lesen von Output Kanal {kanal}, Device {hex(device)}: {e}", "ERROR")
         
 
 def pwmAll():
-    global aPWM0,aPWM1,aPWM2
+    """Liest alle PWM-Module auf allen Kanälen"""
     for kanal in range(3):
-        if kanal==0:
-            for device in aPWM0:
-                try:
-                    read_pwm(kanal,device)
-                except:
-                    pass
-        if kanal==1:
-            for device in aPWM1:
-                try:
-                    read_pwm(kanal,device)
-                except:
-                    pass
-        if kanal==2:
-            for device in aPWM2:
-                try:
-                    read_pwm(kanal,device)
-                except:
-                    pass
+        for device in modules['pwm'][kanal]:
+            try:
+                read_pwm(kanal, device)
+            except Exception as e:
+                log(f"Fehler beim Lesen von PWM Kanal {kanal}, Device {hex(device)}: {e}", "ERROR")
 
 
 def rgbwAll():
-    global aRGBW0,aRGBW1,aRGBW2
+    """Liest alle RGBW-Module auf allen Kanälen"""
     for kanal in range(3):
-        if kanal==0:
-            for device in aRGBW0:
-                try:
-                    read_rgbw(kanal,device)
-                except:
-                    pass
-        if kanal==1:
-            for device in aRGBW1:
-                try:
-                    read_rgbw(kanal,device)
-                except:
-                    pass
-        if kanal==2:
-            for device in aRGBW2:
-                try:
-                    read_rgbw(kanal,device)
-                except:
-                    pass    
+        for device in modules['rgbw'][kanal]:
+            try:
+                read_rgbw(kanal, device)
+            except Exception as e:
+                log(f"Fehler beim Lesen von RGBW Kanal {kanal}, Device {hex(device)}: {e}", "ERROR")    
 
 def interrutpKanal(pin):
-    #Kanal nach INT Pin Wählen:
+    """Verarbeitet Interrupt für einen bestimmten Pin/Kanal"""
+    # Kanal nach INT Pin Wählen:
     if pin==intKanal0:
         kanal=0
-        for device in aIN0:
-            try:
-                read_input(kanal,device,1)
-            except:
-                pass        
     elif pin==intKanal1:
         kanal=1
-        for device in aIN1:
-            try:
-                read_input(kanal,device,1)
-            except:
-                pass
     elif pin==intKanal2:
         kanal=2
-        for device in aIN2:
-            try:
-                read_input(kanal,device,1)
-            except:
-                pass
     else:
         log("Kanal ungültig","ERROR")
-        kanal=0
+        return
+    
+    for device in modules['in'][kanal]:
+        try:
+            read_input(kanal, device, 1)
+        except Exception as e:
+            log(f"Fehler beim Lesen von Input Kanal {kanal}, Device {hex(device)}: {e}", "ERROR")
 
 def read_rtc():
     try:
@@ -1467,11 +1199,11 @@ def read_rtc():
         sArr+= rtctime.strftime("%d;%m;%Y;%H;%M;%S;")
         sArr+= "{0};".format(ds.read_temp())
         sArr+="OK}"
-        sendUDP(sArr)
+        send_tcp(sArr)
     except Exception as e:
         sArr="{RRTC;"
         sArr+="Fehler RTC lesen}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         log("Error RTC lesen:" + str(e),"ERROR") 
 
 
@@ -1483,13 +1215,13 @@ def set_rtc(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";OK}"
-        sendUDP(sArr) 
-    except: 
+        send_tcp(sArr) 
+    except (ValueError, IndexError) as e: 
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Fehler RTC setzen}"
-        sendUDP(sArr) 
-        log("Error RTC setzen","ERROR") 
+        send_tcp(sArr) 
+        log(f"Error RTC setzen: {e}","ERROR") 
         
 
 def read_analog(arr):
@@ -1506,7 +1238,7 @@ def read_analog(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     if kanal <0 or kanal > 3:
@@ -1514,7 +1246,7 @@ def read_analog(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
         
     if channel <0 or channel > 3:
@@ -1522,21 +1254,21 @@ def read_analog(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Analog Channel ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if res <0 or res > 3:
         log("Analog Resolution ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Analog Resolution ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if amp <0 or amp > 3:
         log("Analog Amplifier ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Analog Amplifier ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
             
     #Config Bits bit5+6 = Channel
@@ -1614,13 +1346,13 @@ def read_analog(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";{0};{1}{2}".format(round(wert,3),sStatus,"}")
-        sendUDP(sArr) 
+        send_tcp(sArr) 
     else:
         log("Analog: Daten nicht bereit...","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Analog Daten nicht bereit}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
 
 def read_pwm(kanal, adresse):
@@ -1629,7 +1361,7 @@ def read_pwm(kanal, adresse):
         sArr="{"
         sArr+="SPWM;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     if kanal <0 or kanal > 3:
@@ -1637,7 +1369,7 @@ def read_pwm(kanal, adresse):
         sArr="{"
         sArr+="SPWM;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     #{PWM;I2C-Kanal;Adresse;Kanal;Wert}
@@ -1667,7 +1399,7 @@ def read_pwm(kanal, adresse):
         #PWM Wert:
         sArr+= str(wert)+";"
         sArr+="OK}"
-        sendUDP(sArr)
+        send_tcp(sArr)
 
 def read_rgbw(kanal, adresse):
     if adresse <0x57 or adresse > 0x5f:
@@ -1675,7 +1407,7 @@ def read_rgbw(kanal, adresse):
         sArr="{"
         sArr+="SAP;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     if kanal <0 or kanal > 3:
@@ -1683,7 +1415,7 @@ def read_rgbw(kanal, adresse):
         sArr="{"
         sArr+="SAP;{0};{1};".format(kanal,hex(adresse))
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
         
     #{RGBW;I2C-Kanal;Adresse;RGBWKanal;StatusRGB;StatusW;R;G;B;W}
@@ -1737,7 +1469,7 @@ def read_rgbw(kanal, adresse):
                 else:
                     iSR=0
                 sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
-                sendUDP(sArr)
+                send_tcp(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
                 r=0
@@ -1762,7 +1494,7 @@ def read_rgbw(kanal, adresse):
                 else:
                     iSR=0
                 sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
-                sendUDP(sArr)
+                send_tcp(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
                 r=0
@@ -1787,7 +1519,7 @@ def read_rgbw(kanal, adresse):
                 else:
                     iSR=0
                 sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
-                sendUDP(sArr)
+                send_tcp(sArr)
                 sArr="{"
                 sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
                 r=0
@@ -1811,7 +1543,7 @@ def read_rgbw(kanal, adresse):
             else:
                 iSR=0
             sArr+="{0};{1};{2};{3};{4};{5};OK}".format(iSR,iSW,r,g,b,w)
-            sendUDP(sArr)
+            send_tcp(sArr)
             sArr="{"
             sArr+="SRGBW;{0};{1};{2};".format(kanal,hex(adresse),i2)
             r=0
@@ -1827,7 +1559,7 @@ def set_pwm(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Modul Adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     if kanal <0 or kanal > 3:
@@ -1835,28 +1567,28 @@ def set_pwm(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[3]) < 0 or int(arr[3]) >15:
         log("PWM-Kanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";PWM-Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[4]) <0 or int(arr[4]) >1:
         log("PWM-Status ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";PWM-Status ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[5]) <0 or int(arr[5]) >4095:
         log("PWM-Wert ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";PWM-Wert ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     sStatus=""
     try:
@@ -1892,7 +1624,7 @@ def set_pwm(arr):
         sStatus=sStatus.replace(";","")
         sArr+=";{0}}}".format(sStatus)
         sArr = sArr.replace(";;",";")
-        sendUDP(sArr)
+        send_tcp(sArr)
 
 def set_rgbw(arr):
     adresse=int(arr[2],16)
@@ -1902,7 +1634,7 @@ def set_rgbw(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Modul Adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
     if kanal <0 or kanal > 3:
@@ -1910,28 +1642,28 @@ def set_rgbw(arr):
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[3]) <0 or int(arr[3]) >3:
         log("PWMKanal ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";PWM-Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[4]) <0 or int(arr[4]) >1:
         log("StatusRGB ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";StatusRGB ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     if int(arr[5]) <0 or int(arr[5]) >1:
         log("StatusW ungueltig","ERROR")
         sArr="{"
         sArr+=";".join(arr)
         sArr+=";StatusW ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     sStatus=""
     try:
@@ -2020,90 +1752,50 @@ def set_rgbw(arr):
         sStatus=sStatus.replace(";","")
         sArr+=";{0}}}".format(sStatus)
         sArr = sArr.replace(";;",";")
-        sendUDP(sArr)   
+        send_tcp(sArr)   
         
 def read_input(kanal,adresse, manual=0):
-    global statIN0,statIN1,statIN2
+    """Liest Eingänge von einem Modul und sendet bei Änderung"""
     if adresse <0x20 or adresse > 0x23:
         log("Modul adresse ungueltig: {0}".format(adresse),"ERROR")
         sArr="{"
         sArr+="SAI;{0};{1};".format(kanal,hex(adresse))
         sArr+="Modul adresse ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
     
-    if kanal <0 or kanal > 3:
+    if kanal <0 or kanal > 2:
         log("Kanal ungueltig","ERROR")
         sArr="{"
         sArr+="SAI;{0};{1};".format(kanal,hex(adresse))
         sArr+="Kanal ungueltig}"
-        sendUDP(sArr) 
+        send_tcp(sArr) 
         return
 
-    # Programm in Schleife -> Auf änderung prüfen -> bei Änderung senden + Neuen Status in Variable schreiben
-    # Kanal-> Auswahl statIN0-2
-    # Adresse 0x20-0x23 -> Value 0&1 / 2&3 / 4&5 / 6&7
+    # Programm in Schleife -> Auf Änderung prüfen -> bei Änderung senden + Neuen Status in Variable schreiben
+    # Adresse 0x20-0x23 -> Index 0&1 / 2&3 / 4&5 / 6&7
     # Erster Value - Bank A, Zweiter = Bank B
-    # wertAltA=statIN0[0]
-    # wertAltB=statIN0[1]
     wertAltA=0
     wertAltB=0
-    if kanal==0:
-        if adresse==0x20:
-            wertAltA=statIN0[0]
-            wertAltB=statIN0[1]
-        if adresse==0x21:
-            wertAltA=statIN0[2]
-            wertAltB=statIN0[3]
-        if adresse==0x22:
-            wertAltA=statIN0[4]
-            wertAltB=statIN0[5]
-        if adresse==0x23:
-            wertAltA=statIN0[6]
-            wertAltB=statIN0[7]
-
-    if kanal==1:
-        if adresse==0x20:
-            wertAltA=statIN1[0]
-            wertAltB=statIN1[1]
-        if adresse==0x21:
-            wertAltA=statIN1[2]
-            wertAltB=statIN1[3]
-        if adresse==0x22:
-            wertAltA=statIN1[4]
-            wertAltB=statIN1[5]
-        if adresse==0x23:
-            wertAltA=statIN1[6]
-            wertAltB=statIN1[7]
-
-    if kanal==2:
-        if adresse==0x20:
-            wertAltA=statIN2[0]
-            wertAltB=statIN2[1]
-        if adresse==0x21:
-            wertAltA=statIN2[2]
-            wertAltB=statIN2[3]
-        if adresse==0x22:
-            wertAltA=statIN2[4]
-            wertAltB=statIN2[5]
-        if adresse==0x23:
-            wertAltA=statIN2[6]
-            wertAltB=statIN2[7]
+    idx = (adresse - 0x20) * 2  # Berechne Index basierend auf Adresse
+    wertAltA = stat_in[kanal][idx]
+    wertAltB = stat_in[kanal][idx + 1]
+    
     try:
-        #GPIO A+B Lesen und String bauen:
+        # GPIO A+B Lesen und String bauen:
         wertA=plexer.readByteData(kanal,adresse,gpioA)
         wertB=plexer.readByteData(kanal,adresse,gpioB)
         if wertAltA!=wertA or wertAltB!=wertB or manual==1:
-            #Unterschied, Senden!
+            # Unterschied, Senden!
             befehl="{SAI;"
             befehl+="{0};{1};".format(kanal,hex(adresse))
             iIn = [wertB, wertA]
             i=int.from_bytes(iIn,"big")
             befehl+="{0};".format(i)
             befehl+="OK}"
-            sendUDP(befehl)
+            send_tcp(befehl)
 
-            #erneut lesen, auf änderung prüfen:
+        # Erneut lesen, auf Änderung prüfen:
         wertA2=plexer.readByteData(kanal,adresse,gpioA)
         wertB2=plexer.readByteData(kanal,adresse,gpioB)
         if wertA2!=wertA or wertB2!=wertB:
@@ -2113,86 +1805,39 @@ def read_input(kanal,adresse, manual=0):
             i=int.from_bytes(iIn,"big")
             befehl+="{0};".format(i)
             befehl+="OK}"
-            sendUDP(befehl)
+            send_tcp(befehl)
             wertA=wertA2
             wertB=wertB2        
     except OSError as err:
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
         befehl+="0;IO Error SAI}"
-        sendUDP(befehl)
+        send_tcp(befehl)
         log("I/O error: {0}".format(str(err)),"ERROR")
-    except:
+    except Exception as e:
         befehl="{SAI;"
         befehl+="{0};{1};".format(kanal,hex(adresse))
         befehl+="0;Fehler SAI}"
-        sendUDP(befehl)
+        send_tcp(befehl)
         log("Fehler Input lesen: {0}".format(befehl),"ERROR")
     finally:
-        if kanal==0:
-            if adresse==0x20:
-                statIN0[0]=wertA
-                statIN0[1]=wertB
-            if adresse==0x21:
-                statIN0[2]=wertA
-                statIN0[3]=wertB
-            if adresse==0x22:
-                statIN0[4]=wertA
-                statIN0[5]=wertB
-            if adresse==0x23:
-                statIN0[6]=wertA
-                statIN0[7]=wertB
-
-        if kanal==1:
-            if adresse==0x20:
-                statIN1[0]=wertA
-                statIN1[1]=wertB
-            if adresse==0x21:
-                statIN1[2]=wertA
-                statIN1[3]=wertB
-            if adresse==0x22:
-                statIN1[4]=wertA
-                statIN1[5]=wertB
-            if adresse==0x23:
-                statIN1[6]=wertA
-                statIN1[7]=wertB
-
-        if kanal==2:
-            if adresse==0x20:
-                statIN2[0]=wertA
-                statIN2[1]=wertB
-            if adresse==0x21:
-                statIN2[2]=wertA
-                statIN2[3]=wertB
-            if adresse==0x22:
-                statIN2[4]=wertA
-                statIN2[5]=wertB
-            if adresse==0x23:
-                statIN2[6]=wertA
-                statIN2[7]=wertB
+        # Status speichern
+        stat_in[kanal][idx] = wertA
+        stat_in[kanal][idx + 1] = wertB
         
         
         
 
 def modulSuche(delete=0):
-    global aOut0, aOut1, aOut2,aPWM0,aPWM1,aPWM2,aIN0,aIN1,aIN2,aANA0,aANA1,aANA2,aRGBW0,aRGBW1,aRGBW2
-    #Daten löschen:
+    """Sucht nach I2C-Modulen auf allen Kanälen"""
+    # Daten löschen:
     if delete==1:
-        aOut0 =[]
-        aOut1 =[]
-        aOut2 =[]
-        aPWM0 =[]
-        aPWM1 =[]
-        aPWM2 =[]
-        aIN0 =[]
-        aIN1 =[]
-        aIN2 =[]
-        aANA0 =[]
-        aANA1 =[]
-        aANA2 =[] 
-        aRGBW0 =[]
-        aRGBW1 =[]
-        aRGBW2 =[]
+        for kanal in range(3):
+            modules['in'][kanal].clear()
+            modules['out'][kanal].clear()
+            modules['pwm'][kanal].clear()
+            modules['rgbw'][kanal].clear()
+            modules['ana'][kanal].clear()
 
     for kanalSearch in range(3):        
         log("Suche Bus: {0} Kanal: {1}".format(bus,kanalSearch))
@@ -2205,104 +1850,61 @@ def modulSuche(delete=0):
         for device in range(128):
             try:
                 if (plexer.readByte(kanalSearch,device)!= None):
-                    if device!=mux and device!=I2CAdrDS2482:
+                    if device!=mux and device!=DS2482.I2C_ADDR:
                         if device>=0x20 and device <=0x23:
                             log("GeCoS 16 In : Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                             tmpIN=tmpIN+hex(device)+";"
-                            if kanalSearch==0:
-                                if device not in aIN0:
-                                    aIN0.append(device)
-                                    set_input_konfig(kanalSearch,device)
-                            elif kanalSearch==1:
-                                if device not in aIN1:
-                                    aIN1.append(device)
-                                    set_input_konfig(kanalSearch,device)
-                            elif kanalSearch==2:
-                                if device not in aIN2:
-                                    aIN2.append(device)
-                                    set_input_konfig(kanalSearch,device)
+                            if device not in modules['in'][kanalSearch]:
+                                modules['in'][kanalSearch].append(device)
+                                set_input_konfig(kanalSearch,device)
                             befehl="{MOD;"
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("IN")
                             befehl+="}"
-                            sendUDP(befehl)
+                            send_tcp(befehl)
                         elif device>=0x24 and device <=0x27:
                             log("GeCoS 16 OUT: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                             tmpOut=tmpOut+hex(device)+";"
-                            if kanalSearch==0:
-                                if device not in aOut0:
-                                    aOut0.append(device)
-                                    set_output_konfig(kanalSearch,device)
-                            elif kanalSearch==1:
-                                if device not in aOut1:
-                                    aOut1.append(device)
-                                    set_output_konfig(kanalSearch,device)
-                            elif kanalSearch==2:
-                                if device not in aOut2:
-                                    aOut2.append(device)
-                                    set_output_konfig(kanalSearch,device)
+                            if device not in modules['out'][kanalSearch]:
+                                modules['out'][kanalSearch].append(device)
+                                set_output_konfig(kanalSearch,device)
                             befehl="{MOD;"
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("OUT")
                             befehl+="}"
-                            sendUDP(befehl)
+                            send_tcp(befehl)
                         elif device>=0x50 and device <=0x57:
                             log("GeCoS 16 PWM: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                             tmpPWM=tmpPWM+hex(device)+";"
-                            if kanalSearch==0:
-                                if device not in aPWM0:
-                                    aPWM0.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
-                            elif kanalSearch==1:
-                                if device not in aPWM1:
-                                    aPWM1.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
-                            elif kanalSearch==2:
-                                if device not in aPWM2:
-                                    aPWM2.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
+                            if device not in modules['pwm'][kanalSearch]:
+                                modules['pwm'][kanalSearch].append(device)
+                                set_pwm_konfig(kanalSearch,device)
                             befehl="{MOD;"
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("PWM")
                             befehl+="}"
-                            sendUDP(befehl)
+                            send_tcp(befehl)
                         elif device>=0x58 and device <=0x5f:
                             log("GeCoS 16 RGBW: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                             tmpRGBW=tmpRGBW+hex(device)+";"
-                            if kanalSearch==0:
-                                if device not in aRGBW0:
-                                    aRGBW0.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
-                            elif kanalSearch==1:
-                                if device not in aRGBW1:
-                                    aRGBW1.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
-                            elif kanalSearch==2:
-                                if device not in aRGBW2:
-                                    aRGBW2.append(device)
-                                    set_pwm_konfig(kanalSearch,device)
+                            if device not in modules['rgbw'][kanalSearch]:
+                                modules['rgbw'][kanalSearch].append(device)
+                                set_pwm_konfig(kanalSearch,device)
                             befehl="{MOD;"
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("RGBW")
                             befehl+="}"
-                            sendUDP(befehl)
+                            send_tcp(befehl)
                         elif device>=0x68 and device <=0x6b:
                             log("GeCoS Analog4: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
                             tmpANA=tmpANA+hex(device)+";"
-                            if kanalSearch==0:
-                                if device not in aANA0:
-                                    aANA0.append(device)
-                            elif kanalSearch==1:
-                                if device not in aANA1:
-                                    aANA1.append(device)
-                            elif kanalSearch==2:
-                                if device not in aANA2:
-                                    aANA2.append(device)
+                            if device not in modules['ana'][kanalSearch]:
+                                modules['ana'][kanalSearch].append(device)
                             befehl="{MOD;"
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("ANA")
                             befehl+="}"
-                            sendUDP(befehl)
+                            send_tcp(befehl)
                         else:
                             tmpUnb=tmpUnb+hex(device)+";"
                             log("GeCoS Unbekanntes Gerät: Kanal: {0} Adresse: {1}".format(kanalSearch,hex(device)))
@@ -2310,9 +1912,9 @@ def modulSuche(delete=0):
                             befehl+="{0};{1};".format(kanalSearch,hex(device))
                             befehl+="{0}".format("UNB")
                             befehl+="}"
-                            sendUDP(befehl)
-            except:
-                pass
+                            send_tcp(befehl)
+            except Exception as e:
+                log(f"Fehler beim Scannen von Device {device} auf Kanal {kanalSearch}: {e}", "DEBUG")
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16IN',tmpIN)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16OUT',tmpOut)
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'UNBEKANNT',tmpUnb)                
@@ -2320,23 +1922,26 @@ def modulSuche(delete=0):
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOSANA4',tmpANA)  
         configSchreiben('Module Bus {0}'.format(str(kanalSearch)),'GECOS16RGBW',tmpRGBW)
     befehl="{MOD;0;0;END}"
-    sendUDP(befehl)
+    send_tcp(befehl)
         
 def bit_from_string(string, index):
     i=int(string)
     return i >> index & 1
 
 if __name__ == '__main__':
-    #Konfig Werte MCP:
-    log("Script gestartet","ERROR")
-    #ArgParser:
-    parser = argparse.ArgumentParser(description='True/False print output aktiv')
-    parser.add_argument('--d', help='Prints debug output',action='store_true')
+    # Konfig Werte MCP:
+    log("Script gestartet", "ERROR")
+    
+    # ArgParser:
+    parser = argparse.ArgumentParser(description='GeCoS-Server - Gebäudecontrol System')
+    parser.add_argument('--debug', '-d', help='Aktiviert Debug-Ausgaben', action='store_true')
     args = parser.parse_args()
-    if args.d:
-        printDebug=True
+    
+    if args.debug:
+        print_debug = True
+        logger.setLevel(logging.DEBUG)
 
-    bus=1       # 0 for rev1 boards etc.
+    bus = 1  # 0 für rev1 boards etc.
     mux=0x71
     kanal=0
     bankAKonfig=0x00
@@ -2377,11 +1982,6 @@ if __name__ == '__main__':
     
     #Config lesen:
     configSchreiben('Allgemein','x','x')
-
-    try:
-        dmx=PyDMX('/dev/ttyAMA0')
-    except:  
-        log("Fehler DMX","ERROR")
    
     #MUX initialisieren:
     log("Bus:" + str(bus) + " Kanal:" + str(kanal))
@@ -2395,7 +1995,7 @@ if __name__ == '__main__':
     #OneWire:
     dsOW = DS2482()
 
-    thread_gecosOut()
+    thread_tcp_server()
     #RTC Lesen:
     ds = DS1307(plexer, 0x68)
     rtctime = ds.read_datetime()
@@ -2403,26 +2003,17 @@ if __name__ == '__main__':
     log ("DS3231 Date: {0} Temp: {1} ".format(rtctime.strftime("%d.%m.%Y %H:%M:%S"),str(temp)))
     while True:
         try:
-            #Alle eingänge lesen
+            # Alle Eingänge lesen
             time.sleep(0.01)
-            #Schleife für Eingang Lesen:
-            for device in aIN0:
-                try:
-                    kanal=0
-                    read_input(kanal,device)
-                except:
-                    pass
-            for device in aIN1:
-                try:
-                    kanal=1
-                    read_input(kanal,device)
-                except:
-                    pass
-            for device in aIN2:
-                try:
-                    kanal=2
-                    read_input(kanal,device)
-                except:
-                    pass
+            # Schleife für Eingang Lesen:
+            for kanal in range(3):
+                for device in modules['in'][kanal]:
+                    try:
+                        read_input(kanal, device)
+                    except Exception as e:
+                        log(f"Fehler beim Lesen von Input Kanal {kanal}, Device {hex(device)}: {e}", "DEBUG")
         except KeyboardInterrupt:
+            log("Server wird beendet...", "INFO")
             break
+
+
