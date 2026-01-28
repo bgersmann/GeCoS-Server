@@ -179,6 +179,7 @@ Download des git Verzeichnisses:<br>
 `git clone https://github.com/bgersmann/GeCoS-Server`<br>
 Kopiere GeCoS-Server.py zu /usr/local/bin/<br>
 `sudo mv /home/pi/GeCoS-Server/GeCoS-Server.py /usr/local/bin/`<br>
+`sudo mv /home/pi/GeCoS-Server/Mux.py /usr/local/bin/`<br>
 `sudo rm -r GeCoS-Server`<br>
 
 Erstellen des Services:<br>
@@ -211,6 +212,7 @@ Einrichten und Starten des Services: <br>
 
 ### Alternativ:<br>
 `sudo wget -O /usr/local/bin/GeCoS-Server.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/GeCoS-Server.py`<br>
+`sudo wget -O /usr/local/bin/Mux.py https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/Mux.py`<br>
 `sudo wget -O /lib/systemd/system/gecos.service https://raw.githubusercontent.com/bgersmann/GeCoS-Server/master/gecos.service`<br>
 `sudo chmod 644 /lib/systemd/system/gecos.service`<br>
 `sudo chmod +x /usr/local/bin/GeCoS-Server.py`<br>
